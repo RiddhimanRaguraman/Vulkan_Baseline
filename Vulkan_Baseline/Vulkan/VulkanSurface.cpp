@@ -17,7 +17,7 @@ namespace Azul
 		this->Destroy();
 	}
 
-	bool VulkanSurface::Create(VkInstance instance, HINSTANCE module, HWND hwnd)
+	void VulkanSurface::Create(VkInstance instance, HINSTANCE module, HWND hwnd)
 	{
 		this->privInstance = instance;
 
@@ -28,16 +28,7 @@ namespace Azul
 		createInfo.hinstance = module;
 		createInfo.hwnd      = hwnd;
 
-		VkResult result = vkCreateWin32SurfaceKHR(instance, &createInfo, nullptr, &this->privSurface);
-
-		if (result != VK_SUCCESS)
-		{
-			Trace::out("VulkanSurface: vkCreateWin32SurfaceKHR failed (%d)\n", (int)result);
-			this->privSurface = VK_NULL_HANDLE;
-			return false;
-		}
-
-		return true;
+		vkAssert(vkCreateWin32SurfaceKHR(instance, &createInfo, nullptr, &this->privSurface));
 	}
 
 	void VulkanSurface::Destroy()

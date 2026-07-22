@@ -16,7 +16,7 @@ namespace Azul
 		this->Destroy();
 	}
 
-	bool VulkanInstance::Create(const char *pAppName)
+	void VulkanInstance::Create(const char *pAppName)
 	{
 		VkApplicationInfo appInfo = {};
 		appInfo.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -26,7 +26,6 @@ namespace Azul
 		appInfo.engineVersion      = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.apiVersion         = VK_API_VERSION_1_0;
 
-		// Plain C array -- no std::vector.
 		const char *extensions[2];
 		extensions[0] = VK_KHR_SURFACE_EXTENSION_NAME;
 		extensions[1] = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
@@ -38,16 +37,7 @@ namespace Azul
 		createInfo.ppEnabledExtensionNames = extensions;
 		createInfo.enabledLayerCount       = 0;
 
-		VkResult result = vkCreateInstance(&createInfo, nullptr, &this->privInstance);
-
-		if (result != VK_SUCCESS)
-		{
-			Trace::out("VulkanInstance: vkCreateInstance failed (%d)\n", (int)result);
-			this->privInstance = VK_NULL_HANDLE;
-			return false;
-		}
-
-		return true;
+		vkAssert(vkCreateInstance(&createInfo, nullptr, &this->privInstance));
 	}
 
 	void VulkanInstance::Destroy()

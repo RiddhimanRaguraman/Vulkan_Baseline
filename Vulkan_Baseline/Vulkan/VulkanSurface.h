@@ -5,7 +5,7 @@
 #ifndef VULKAN_SURFACE_H
 #define VULKAN_SURFACE_H
 
-#include <vulkan/vulkan.hpp>
+#include "VulkanUtilities.h"
 
 //---------------------------------------------------------------------------
 // class VulkanSurface
@@ -38,7 +38,7 @@ namespace Azul
 		//-----------------------------------------------------------------
 		// Lifetime
 		//-----------------------------------------------------------------
-		bool Create(VkInstance instance, HINSTANCE module, HWND hwnd);
+		void Create(VkInstance instance, HINSTANCE module, HWND hwnd);
 
 		// Safe to call more than once; the destructor calls it too.
 		void Destroy();

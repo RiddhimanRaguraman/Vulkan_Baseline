@@ -1,0 +1,90 @@
+//-----------------------------------------------------------------
+// Copyright 2026 by Riddhiman Raguraman
+//-----------------------------------------------------------------
+
+#ifndef VULKAN_UTILITIES_H
+#define VULKAN_UTILITIES_H
+
+#include <vulkan/vulkan.hpp>
+
+// -------------------------------------------------------------------------
+//                      vkAssert
+// - To print the VkResult to the debug and behave like an assert(); function
+// - Instead of the code snippents where you use  if(res != VK_SUCCESS) return false;
+//         use vkAssert(function(args));
+// - it would say the error and where it is called from
+//
+// - VkResult is NOT an HRESULT, so there is no system message table for Vulkan.
+//   The names come from the switch below.
+// - Only NEGATIVE codes are errors. VK_SUCCESS is 0 and the positive codes are
+//   non-error statuses (VK_TIMEOUT, VK_SUBOPTIMAL_KHR, ...), so the test is
+//   "< 0" and not "!= VK_SUCCESS" -- otherwise a merely suboptimal swapchain
+//   would kill the process once presenting starts.
+// --------------------------------------------------------------------------
+
+static inline const char *vkResultToString(VkResult result) noexcept
+{
+	switch (result)
+	{
+		// Success / non-error statuses
+	case VK_SUCCESS:						return "VK_SUCCESS";
+	case VK_NOT_READY:						return "VK_NOT_READY";
+	case VK_TIMEOUT:						return "VK_TIMEOUT";
+	case VK_EVENT_SET:						return "VK_EVENT_SET";
+	case VK_EVENT_RESET:					return "VK_EVENT_RESET";
+	case VK_INCOMPLETE:						return "VK_INCOMPLETE";
+	case VK_SUBOPTIMAL_KHR:					return "VK_SUBOPTIMAL_KHR";
+
+		// Errors -- what vkCreateInstance hands back
+	case VK_ERROR_OUT_OF_HOST_MEMORY:		return "VK_ERROR_OUT_OF_HOST_MEMORY";
+	case VK_ERROR_OUT_OF_DEVICE_MEMORY:		return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
+	case VK_ERROR_INITIALIZATION_FAILED:	return "VK_ERROR_INITIALIZATION_FAILED";
+	case VK_ERROR_LAYER_NOT_PRESENT:		return "VK_ERROR_LAYER_NOT_PRESENT";
+	case VK_ERROR_EXTENSION_NOT_PRESENT:	return "VK_ERROR_EXTENSION_NOT_PRESENT";
+	case VK_ERROR_INCOMPATIBLE_DRIVER:		return "VK_ERROR_INCOMPATIBLE_DRIVER";
+
+		// Errors -- general device / object failures
+	case VK_ERROR_DEVICE_LOST:				return "VK_ERROR_DEVICE_LOST";
+	case VK_ERROR_MEMORY_MAP_FAILED:		return "VK_ERROR_MEMORY_MAP_FAILED";
+	case VK_ERROR_FEATURE_NOT_PRESENT:		return "VK_ERROR_FEATURE_NOT_PRESENT";
+	case VK_ERROR_TOO_MANY_OBJECTS:			return "VK_ERROR_TOO_MANY_OBJECTS";
+	case VK_ERROR_FORMAT_NOT_SUPPORTED:		return "VK_ERROR_FORMAT_NOT_SUPPORTED";
+	case VK_ERROR_FRAGMENTED_POOL:			return "VK_ERROR_FRAGMENTED_POOL";
+	case VK_ERROR_OUT_OF_POOL_MEMORY:		return "VK_ERROR_OUT_OF_POOL_MEMORY";
+	case VK_ERROR_INVALID_EXTERNAL_HANDLE:	return "VK_ERROR_INVALID_EXTERNAL_HANDLE";
+	case VK_ERROR_UNKNOWN:					return "VK_ERROR_UNKNOWN";
+
+		// Errors -- surface / swapchain (WSI)
+	case VK_ERROR_SURFACE_LOST_KHR:			return "VK_ERROR_SURFACE_LOST_KHR";
+	case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR:	return "VK_ERROR_NATIVE_WINDOW_IN_USE_KHR";
+	case VK_ERROR_OUT_OF_DATE_KHR:			return "VK_ERROR_OUT_OF_DATE_KHR";
+	case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR:	return "VK_ERROR_INCOMPATIBLE_DISPLAY_KHR";
+	case VK_ERROR_VALIDATION_FAILED_EXT:	return "VK_ERROR_VALIDATION_FAILED_EXT";
+
+	default:								return "Unknown VkResult";
+	}
+}
+
+static inline void vkAssertImpl(VkResult result, const char *file, int line) noexcept
+{
+	if (result < 0)
+	{
+		// Print the raw code alongside the name so an enum the switch does not
+		// know yet is still identifiable from the log.
+		Trace::out("%s(%d): <double-click> \nvkAssert failed: %s (%d)\n",
+			file,
+			line,
+			vkResultToString(result),
+			(int)result);
+
+		assert(false);
+		ExitProcess((UINT)result);
+	}
+}
+
+// Macro to call the assertion for Vulkan Code
+#define vkAssert(expr) vkAssertImpl((expr), __FILE__, __LINE__)
+
+#endif   // VULKAN_UTILITIES_H
+
+// ---  End of File ---

@@ -20,18 +20,14 @@ int main()
 		return 1;
 	}
 
+	// No status check on these two -- vkAssert() inside asserts and exits the
+	// process on a failed VkResult, so reaching the next line means success.
 	Azul::VulkanInstance instance;
-	if (!instance.Create("Vulkan Baseline"))
-	{
-		return 1;
-	}
+	instance.Create("Vulkan Baseline");
 
 	// Hands the window's HWND to Vulkan -- the Win32-specific call.
 	Azul::VulkanSurface surface;
-	if (!surface.Create(instance.GetInstance(), window.GetModule(), window.GetHandle()))
-	{
-		return 1;
-	}
+	surface.Create(instance.GetInstance(), window.GetModule(), window.GetHandle());
 
 	Trace::out("Vulkan surface created -- entering message loop\n");
 

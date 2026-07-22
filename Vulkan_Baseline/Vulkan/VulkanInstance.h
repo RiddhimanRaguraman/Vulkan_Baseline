@@ -5,7 +5,7 @@
 #ifndef VULKAN_INSTANCE_H
 #define VULKAN_INSTANCE_H
 
-#include <vulkan/vulkan.hpp>
+#include "VulkanUtilities.h"
 
 //---------------------------------------------------------------------------
 // class VulkanInstance
@@ -37,7 +37,7 @@ namespace Azul
 		//-----------------------------------------------------------------
 		// Lifetime
 		//-----------------------------------------------------------------
-		bool Create(const char *pAppName);
+		void Create(const char *pAppName);
 
 		// Safe to call more than once; the destructor calls it too.
 		void Destroy();

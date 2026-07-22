@@ -66,6 +66,65 @@ local frameworkDir = "Vulkan_Baseline/Framework"
 -- library vulkan-1.lib below is all that is needed to use the loader DLL.
 local vulkanSDK = os.getenv("VULKAN_SDK") or "C:/VulkanSDK/1.4.350.0"
 
+-----------------------------------------------------------------------------
+-- AZUL SCRATCH FOLDER
+-----------------------------------------------------------------------------
+-- Framework.h keeps its memory-tracking scratch files (DLL_COUNT.bin,
+-- MemTracker.bin) in <AZUL_PATH>\Azul. It does NOT use the solution folder --
+-- Trace::GetAzulPath() reads the AZUL_PATH user environment variable out of
+-- HKCU\Environment, so the location is machine-wide and shared by every
+-- solution built against this framework.
+--
+-- DLL_COUNT.bin is a reference count across the loaded DLLs. The very first
+-- module to start (when the file is absent) prints the "**  Framework: ... **"
+-- banner; the rest just increment. On a clean exit the count returns to zero
+-- and the .bin files are deleted, so the next run banners again.
+--
+-- If a run does NOT exit cleanly -- Stop Debugging in VS, a crash, a killed
+-- process -- the count never unwinds and DLL_COUNT.bin is left behind. Every
+-- later run then sees it, takes the "not first time" path, and the banner
+-- silently disappears. Hence the prebuild wipe below: it clears the stale
+-- state so a fresh build always banners again.
+local azulPath = os.getenv("AZUL_PATH")
+
+--=============================================================================
+-- Include-path helper: returns a folder plus EVERY subfolder under it, at any
+-- depth. Feeding this to includedirs means a new source subfolder (e.g.
+-- Vulkan/Utilities) lands on the include path the moment premake is re-run --
+-- no edit to this file needed, and #include "VulkanUtilites.h" resolves
+-- without a folder prefix, exactly like the top-level folders already do.
+--
+-- Depth is unlimited and there is no recursion to run away: os.matchdirs
+-- walks the tree once and hands back a flat list. The only real hazard would
+-- be a directory junction pointing at an ancestor, and the skip list below
+-- covers the folders where that could plausibly show up.
+--
+-- Skipped: dot-folders (.vs, .git) and build output (obj, bin, x64) --
+-- matched on every path segment, so a nested one is caught too.
+--=============================================================================
+local function includeTree(root)
+	local skipDir = { obj = true, bin = true, x64 = true, intermediate = true }
+
+	local dirs = { root }
+
+	for _, dir in ipairs(os.matchdirs(root .. "/**")) do
+		local keep = true
+
+		for segment in dir:gmatch("[^/\\]+") do
+			if segment:sub(1, 1) == "." or skipDir[segment:lower()] then
+				keep = false
+				break
+			end
+		end
+
+		if keep then
+			table.insert(dirs, dir)
+		end
+	end
+
+	return dirs
+end
+
 --=============================================================================
 -- Library helper: builds Math / File / AnimTime from source as its own DLL.
 --   name      : project name / Libs subfolder (e.g. "Math")
@@ -204,7 +263,19 @@ end
 project "Vulkan_Baseline"
 	location "Vulkan_Baseline"
 	language "C++"
-	kind "ConsoleApp"
+
+	-- WindowedApp (/SUBSYSTEM:WINDOWS) -- no console window pops up alongside
+	-- the render window. Nothing is lost: Trace::out writes via
+	-- OutputDebugString, which goes to the debugger's Output window, never to
+	-- stdout, so the console was always empty anyway.
+	--
+	-- /SUBSYSTEM:WINDOWS normally demands WinMain(). Pointing the entry symbol
+	-- at mainCRTStartup keeps plain int main() as the entry point instead --
+	-- the window's HINSTANCE already comes from GetModuleHandle(nullptr), so
+	-- WinMain's hInstance parameter would buy us nothing.
+	kind "WindowedApp"
+	entrypoint "mainCRTStartup"
+
 	cppdialect "C++17"
 	staticruntime "Off"
 	characterset "MBCS"
@@ -219,11 +290,14 @@ project "Vulkan_Baseline"
 		"Vulkan_Baseline/**.cpp"
 	}
 
+	-- Every folder under Vulkan_Baseline/, discovered at generate time, so
+	-- Framework / Source / Window / Vulkan and any subfolder they grow are all
+	-- on the include path. Re-run premake after adding a folder.
+	includedirs (includeTree("Vulkan_Baseline"))
+
+	-- External include paths (not part of this project's source tree).
+	-- includedirs is additive, so these append to the tree above.
 	includedirs {
-		"Vulkan_Baseline/Framework",
-		"Vulkan_Baseline/Source",
-		"Vulkan_Baseline/Window",
-		"Vulkan_Baseline/Vulkan",
 		"Libs/Math/include",
 		"Libs/File/include",
 		"Libs/AnimTime/include",
@@ -244,11 +318,33 @@ project "Vulkan_Baseline"
 	-- The app force-includes Framework.h directly (no pch of its own).
 	forceincludes { "Framework.h" }
 
+	-- Vulkan IMPLICIT LAYERS -- the "[OBS] graphics-hook.dll loaded..." noise.
+	--
+	-- Overlay/capture tools register implicit layers under
+	-- HKLM\SOFTWARE\Khronos\Vulkan\ImplicitLayers. The Vulkan loader pulls
+	-- every one of them into ANY process that calls vkCreateInstance -- the
+	-- tool does not have to be running, and nothing is injected into the exe.
+	-- That is why the OBS lines showed up with OBS closed.
+	--
+	-- Each layer's JSON declares a "disable_environment" key that switches just
+	-- that layer off for one process. Setting them as DEBUGGER env vars keeps
+	-- the change local to running this project from VS: the registry is
+	-- untouched and OBS still captures everything else normally.
+	--
+	-- Uncomment a line to also drop that overlay. They are off the render path
+	-- here, but overlays hook vkQueuePresentKHR, so they are worth eliminating
+	-- first whenever present/swapchain behaviour looks strange later on.
+	debugenvs {
+		"DISABLE_VULKAN_OBS_CAPTURE=1",				-- VK_LAYER_OBS_HOOK
+	--	"DISABLE_VK_LAYER_VALVE_steam_overlay_1=1",	-- Steam overlay
+	--	"EOS_OVERLAY_DISABLE_VULKAN_WIN64=1",		-- Epic EOS overlay
+	}
+
 	defines {
 		"MATH_USE_DLL",			-- consume Math via dllimport
 		"FILE_USE_DLL",			-- consume File via dllimport
 		"ANIM_TIME_USE_DLL",	-- consume AnimTime via dllimport
-		"_CONSOLE",
+		"_WINDOWS",				-- matches kind "WindowedApp" above
 
 		-- Turns on the Win32 half of <vulkan/vulkan.h>: VkWin32SurfaceCreateInfoKHR
 		-- and vkCreateWin32SurfaceKHR. Without this, VulkanSurface will not compile.
@@ -269,12 +365,24 @@ project "Vulkan_Baseline"
 		optimize "On"
 		defines { "NDEBUG" }
 
-	-- Wipe any stale Azul output folder before building (matches the course's
-	-- CleanMe scripts). Guarded by "if exist" so it never errors when absent.
+	-- Wipe any stale Azul scratch folder before building, so a leftover
+	-- DLL_COUNT.bin from a killed run does not suppress the framework banner
+	-- (see the AZUL_PATH notes at the top). Guarded by "if exist" so it never
+	-- errors when absent.
+	--
+	-- Both paths are wiped: AZUL_PATH is where the framework actually looks,
+	-- and $(SolutionDir) is kept because that is where it lands if AZUL_PATH is
+	-- ever unset or repointed at this solution.
 	filter "action:vs*"
 		prebuildcommands {
 			'if exist "$(SolutionDir)Azul" rmdir /S /Q "$(SolutionDir)Azul"'
 		}
+
+		if azulPath then
+			prebuildcommands {
+				'if exist "' .. azulPath .. '\\Azul" rmdir /S /Q "' .. azulPath .. '\\Azul"'
+			}
+		end
 	filter {}
 
 --=============================================================================
