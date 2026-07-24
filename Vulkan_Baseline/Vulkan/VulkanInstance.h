@@ -21,7 +21,7 @@
 // while leaving the door open to layer vk:: RAII types on top later.
 //---------------------------------------------------------------------------
 
-namespace Azul
+namespace Azul //TODO: Neelam namespace
 {
 	class VulkanInstance
 	{
