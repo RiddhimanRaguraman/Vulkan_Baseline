@@ -4,14 +4,15 @@
 
 #include "Window.h"
 
-namespace Azul
+namespace Neelam
 {
-	const char *const Window::privClassName = "AzulVulkanWindow";
+	const char *const Window::privClassName = "NeelamVulkanWindow";
 
 	Window::Window()
 		: privHandle(nullptr),
 		  privModule(nullptr),
-		  privClassRegistered(false)
+		  privClassRegistered(false),
+		  privIsChild(false)
 	{
 	}
 
@@ -20,16 +21,61 @@ namespace Azul
 		this->Destroy();
 	}
 
+	//-----------------------------------------------------------------
+	// Standalone: a top-level overlapped window that owns the app lifetime.
+	//-----------------------------------------------------------------
 	bool Window::Create(const char *pTitle, int width, int height)
 	{
-		this->privModule = GetModuleHandle(nullptr);
+		this->privModule  = GetModuleHandle(nullptr);
+		this->privIsChild = false;
+
+		if (!this->privRegisterClass())
+		{
+			return false;
+		}
+
+		return this->privCreate(pTitle, WS_OVERLAPPEDWINDOW, 0, nullptr, width, height);
+	}
+
+	//-----------------------------------------------------------------
+	// Embedded: a child window inside an HWND supplied by the WPF editor.
+	//-----------------------------------------------------------------
+	bool Window::CreateChild(HWND hParentWnd, int width, int height)
+	{
+		this->privModule  = GetModuleHandle(nullptr);
+		this->privIsChild = true;
+
+		if (!this->privRegisterClass())
+		{
+			return false;
+		}
+
+		// WS_CHILD + WS_VISIBLE, clipped to siblings so the editor can lay
+		// other native panes over/around it without tearing.
+		const DWORD style = WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+		return this->privCreate("", style, 0, hParentWnd, width, height);
+	}
+
+	//-----------------------------------------------------------------
+	// Register the window class once. Idempotent across both Create paths.
+	//-----------------------------------------------------------------
+	bool Window::privRegisterClass()
+	{
+		if (this->privClassRegistered)
+		{
+			return true;
+		}
 
 		WNDCLASSEX wc = {};
 		wc.cbSize        = sizeof(WNDCLASSEX);
-		wc.style         = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
+		wc.style         = CS_HREDRAW | CS_VREDRAW;
 		wc.lpfnWndProc   = Window::privWndProc;
 		wc.hInstance     = this->privModule;
 		wc.hCursor       = LoadCursor(nullptr, IDC_ARROW);
+
+		// A background brush gives a clean fill while there is no renderer yet.
+		// Once Render() clears the swapchain every frame, set this to nullptr
+		// to avoid the OS repaint fighting Vulkan (flicker on resize).
 		wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 		wc.lpszClassName = Window::privClassName;
 
@@ -38,30 +84,52 @@ namespace Azul
 			Trace::out("Window: RegisterClassEx failed (%lu)\n", GetLastError());
 			return false;
 		}
-		this->privClassRegistered = true;
 
-		// CreateWindowEx takes the OUTER size, so grow the requested client
-		// area by however much the chosen style's border needs.
-		RECT rect;
-		rect.left   = 0;
-		rect.top    = 0;
-		rect.right  = width;
-		rect.bottom = height;
-		AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
+		this->privClassRegistered = true;
+		return true;
+	}
+
+	//-----------------------------------------------------------------
+	// Shared CreateWindowEx. Passes `this` as lpParam so the static WndProc
+	// can stash it on WM_NCCREATE (see privWndProc).
+	//-----------------------------------------------------------------
+	bool Window::privCreate(const char *pTitle, DWORD style, DWORD exStyle, HWND hParentWnd, int width, int height)
+	{
+		int outerW = width;
+		int outerH = height;
+		int posX   = CW_USEDEFAULT;
+		int posY   = CW_USEDEFAULT;
+
+		if (hParentWnd == nullptr)
+		{
+			// Top-level: CreateWindowEx takes the OUTER size, so grow the
+			// requested client area by the border metrics for this style.
+			RECT rect = { 0, 0, width, height };
+			AdjustWindowRect(&rect, style, FALSE);
+			outerW = rect.right - rect.left;
+			outerH = rect.bottom - rect.top;
+		}
+		else
+		{
+			// Child: no border, and coordinates are relative to the parent's
+			// client area. Sit at the top-left; the editor resizes us later.
+			posX = 0;
+			posY = 0;
+		}
 
 		this->privHandle = CreateWindowEx(
-			0,
+			exStyle,
 			Window::privClassName,
 			pTitle,
-			WS_OVERLAPPEDWINDOW,//WS_POPUP WS_OVERLAPPEDWINDOW
-			CW_USEDEFAULT,
-			CW_USEDEFAULT,
-			rect.right - rect.left,
-			rect.bottom - rect.top,
-			nullptr,
+			style,
+			posX,
+			posY,
+			outerW,
+			outerH,
+			hParentWnd,
 			nullptr,
 			this->privModule,
-			nullptr);
+			this);				// lpParam -> arrives in WM_NCCREATE
 
 		if (this->privHandle == nullptr)
 		{
@@ -118,7 +186,33 @@ namespace Azul
 		return this->privModule;
 	}
 
+	//-----------------------------------------------------------------
+	// Static thunk. On WM_NCCREATE (the first message a window gets) the
+	// Window* we passed as lpParam is tucked into GWLP_USERDATA; every later
+	// message pulls it back out and dispatches to the instance. This is the
+	// standard way to give a C-style WndProc access to `this` -- and it is
+	// what a later WM_SIZE handler will use to reach the swapchain.
+	//-----------------------------------------------------------------
 	LRESULT CALLBACK Window::privWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+	{
+		if (msg == WM_NCCREATE)
+		{
+			CREATESTRUCT *pCreate = reinterpret_cast<CREATESTRUCT *>(lParam);
+			Window *pWindow = reinterpret_cast<Window *>(pCreate->lpCreateParams);
+			SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pWindow));
+		}
+
+		Window *pWindow = reinterpret_cast<Window *>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+		if (pWindow != nullptr)
+		{
+			return pWindow->privHandleMessage(hwnd, msg, wParam, lParam);
+		}
+
+		// Messages before WM_NCCREATE arrive with no instance yet.
+		return DefWindowProc(hwnd, msg, wParam, lParam);
+	}
+
+	LRESULT Window::privHandleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
 		switch (msg)
 		{
@@ -127,7 +221,17 @@ namespace Azul
 			return 0;
 
 		case WM_DESTROY:
-			PostQuitMessage(0);
+			// The handle is gone now -- null it so Destroy() does not call
+			// DestroyWindow on a stale HWND.
+			this->privHandle = nullptr;
+
+			// Only a standalone top-level window drives the message loop, so
+			// only it may quit it. A child window in the editor must not, or
+			// PostQuitMessage would tear down WPF's whole message loop.
+			if (!this->privIsChild)
+			{
+				PostQuitMessage(0);
+			}
 			return 0;
 
 		default:

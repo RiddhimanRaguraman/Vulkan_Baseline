@@ -4,7 +4,7 @@
 
 #include "VulkanInstance.h"
 
-namespace Azul
+namespace Neelam
 {
 	VulkanInstance::VulkanInstance()
 		: privInstance(VK_NULL_HANDLE)
@@ -22,7 +22,7 @@ namespace Azul
 		appInfo.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		appInfo.pApplicationName   = pAppName;
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.pEngineName        = "Azul";
+		appInfo.pEngineName        = "Neelam";
 		appInfo.engineVersion      = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.apiVersion         = VK_API_VERSION_1_0;
 

@@ -22,7 +22,7 @@
 // must outlive the surface (destroy the surface first).
 //---------------------------------------------------------------------------
 
-namespace Azul
+namespace Neelam
 {
 	class VulkanSurface
 	{

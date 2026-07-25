@@ -4,7 +4,7 @@
 
 #include "VulkanSurface.h"
 
-namespace Azul
+namespace Neelam
 {
 	VulkanSurface::VulkanSurface()
 		: privInstance(VK_NULL_HANDLE),

@@ -4,46 +4,32 @@
 
 #include "MathEngine.h"
 
-#include "Window.h"
-#include "VulkanInstance.h"
-#include "VulkanSurface.h"
+#include "Game.h"
+
+//---------------------------------------------------------------------------
+// Standalone entry point.
+//
+// Creates the Game, brings it up with its own top-level window (nullptr parent
+// == standalone), and hands the frame loop to the Engine until the window is
+// closed. Shutdown() runs inside Run().
+//
+// The C# / WPF editor will NOT go through here: it links the engine as a DLL
+// and calls Initialize(hwnd) / Tic() / Shutdown() itself. This main() is the
+// standalone-runnable path used for development and testing.
+//---------------------------------------------------------------------------
 
 int main()
 {
+	// Quick sanity ping through the Azul math library (a lib, still Azul::).
 	Azul::Vec3 v(1.4f, 1.5f, 1.6f);
-	Trace::out("%f ,%f, %f", v.x(), v.y(), v.z());
-	Trace::out("\nHello World\n");
+	Trace::out("%f ,%f, %f\n", v.x(), v.y(), v.z());
 
-	Azul::Window window;
-	if (!window.Create("Vulkan Baseline", 1280, 720))
-	{
-		return 1;
-	}
+	Neelam::Game game;
 
-	// No status check on these two -- vkAssert() inside asserts and exits the
-	// process on a failed VkResult, so reaching the next line means success.
-	Azul::VulkanInstance instance;
-	instance.Create("Vulkan Baseline");
-
-	// Hands the window's HWND to Vulkan -- the Win32-specific call.
-	Azul::VulkanSurface surface;
-	surface.Create(instance.GetInstance(), window.GetModule(), window.GetHandle());
-
-	Trace::out("Vulkan surface created -- entering message loop\n");
-
-	while (window.ProcessMessages())
-	{
-		// per-frame work goes here
-	}
-
-	// Tear down in reverse order: the surface is created FROM the instance,
-	// so it has to go first. (Each Destroy is safe to call twice -- the
-	// destructors run them again as a backstop.)
-	surface.Destroy();
-	instance.Destroy();
-	window.Destroy();
-
-	Trace::out("Shutdown clean\n");
+	game.Initialize();		// nullptr parent -> standalone top-level window
+	game.Run();				// pumps + Update/Render until WM_QUIT, then Shutdown
 
 	return 0;
 }
+
+// ---  End of File ---
