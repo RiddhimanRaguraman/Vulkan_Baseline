@@ -24,7 +24,7 @@ namespace Neelam
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.pEngineName        = "Neelam";
 		appInfo.engineVersion      = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.apiVersion         = VK_API_VERSION_1_0;
+		appInfo.apiVersion         = VK_API_VERSION_1_4;
 
 		const char *extensions[2];
 		extensions[0] = VK_KHR_SURFACE_EXTENSION_NAME;
