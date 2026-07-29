@@ -9,6 +9,8 @@
 #include "Instance.h"
 #include "Surface.h"
 #include "PhysicalDevice.h"
+#include "QueueFamily.h"
+#include "LogicalDevice.h"
 
 #include "AnimTimer.h"		
 
@@ -97,6 +99,8 @@ namespace Neelam
 		vk::Instance       instance;
 		vk::Surface        surface;
 		vk::PhysicalDevice physicalDevice;
+		vk::QueueFamily    queueFamily;
+		vk::LogicalDevice  logicalDevice;
 
 	private:
 		Azul::AnimTimer privFrameTimer;

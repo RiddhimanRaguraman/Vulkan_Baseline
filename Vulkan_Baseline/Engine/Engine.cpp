@@ -15,6 +15,8 @@ namespace Neelam
 		  instance(),
 		  surface(),
 		  physicalDevice(),
+		  queueFamily(),
+		  logicalDevice(),
 		  privFrameTimer(),
 		  privInitialized(false)
 	{
@@ -47,6 +49,17 @@ namespace Neelam
 		// supports the format the swapchain will later request.
 		this->physicalDevice.Create(this->instance.GetInstance(),
 									this->surface.GetSurface());
+
+		// Find the graphics+present queue family index on that GPU. This is a
+		// selection only -- the actual VkQueue is obtained after the logical
+		// device exists (vkGetDeviceQueue), just below.
+		this->queueFamily.Create(this->physicalDevice.GetPhysicalDevice(),
+								 this->surface.GetSurface());
+
+		// Create the logical device: register the graphics+present queue, then
+		// build. After this, GetQueue(...) hands back the real VkQueue.
+		this->logicalDevice.Add(this->queueFamily.GetGraphicsFamilyIndex());
+		this->logicalDevice.Create(this->physicalDevice.GetPhysicalDevice());
 
 		// Hand off to the game to load its content.
 		this->LoadContent();
@@ -110,6 +123,10 @@ namespace Neelam
 		// Reverse of Initialize. The physical device is only a borrowed handle
 		// (nothing to release), but tear down in reverse order for discipline:
 		// surface is created FROM the instance, so surface before instance.
+		// The logical device owns real GPU state, so it must go before the
+		// things it was built from.
+		this->logicalDevice.Destroy();
+		this->queueFamily.Destroy();
 		this->physicalDevice.Destroy();
 		this->surface.Destroy();
 		this->instance.Destroy();
