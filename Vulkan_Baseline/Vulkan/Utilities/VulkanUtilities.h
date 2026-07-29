@@ -83,7 +83,7 @@ static inline void vkAssertImpl(VkResult result, const char *file, int line) noe
 }
 
 // Macro to call the assertion for Vulkan Code
-#define vkAssert(expr) vkAssertImpl((expr), __FILE__, __LINE__)
+#define VK_Try(expr) vkAssertImpl((expr), __FILE__, __LINE__)
 
 #endif   // VULKAN_UTILITIES_H
 

@@ -4,7 +4,7 @@
 
 #include "Window.h"
 
-namespace Neelam
+namespace Neelam::vk
 {
 	const char *const Window::privClassName = "NeelamVulkanWindow";
 
@@ -56,6 +56,49 @@ namespace Neelam
 		return this->privCreate("", style, 0, hParentWnd, width, height);
 	}
 
+	void Window::Destroy()
+	{
+		if (this->privHandle != nullptr)
+		{
+			DestroyWindow(this->privHandle);
+			this->privHandle = nullptr;
+		}
+
+		if (this->privClassRegistered)
+		{
+			UnregisterClass(Window::privClassName, this->privModule);
+			this->privClassRegistered = false;
+		}
+	}
+
+	bool Window::ProcessMessages()
+	{
+		MSG msg;
+
+		while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+		{
+			if (msg.message == WM_QUIT)
+			{
+				return false;
+			}
+
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+
+		return true;
+	}
+
+	HWND Window::GetHandle() const
+	{
+		return this->privHandle;
+	}
+
+	HINSTANCE Window::GetModule() const
+	{
+		return this->privModule;
+	}
+
 	//-----------------------------------------------------------------
 	// Register the window class once. Idempotent across both Create paths.
 	//-----------------------------------------------------------------
@@ -67,11 +110,11 @@ namespace Neelam
 		}
 
 		WNDCLASSEX wc = {};
-		wc.cbSize        = sizeof(WNDCLASSEX);
-		wc.style         = CS_HREDRAW | CS_VREDRAW;
-		wc.lpfnWndProc   = Window::privWndProc;
-		wc.hInstance     = this->privModule;
-		wc.hCursor       = LoadCursor(nullptr, IDC_ARROW);
+		wc.cbSize = sizeof(WNDCLASSEX);
+		wc.style = CS_HREDRAW | CS_VREDRAW;
+		wc.lpfnWndProc = Window::privWndProc;
+		wc.hInstance = this->privModule;
+		wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
 
 		// A background brush gives a clean fill while there is no renderer yet.
 		// Once Render() clears the swapchain every frame, set this to nullptr
@@ -93,12 +136,12 @@ namespace Neelam
 	// Shared CreateWindowEx. Passes `this` as lpParam so the static WndProc
 	// can stash it on WM_NCCREATE (see privWndProc).
 	//-----------------------------------------------------------------
-	bool Window::privCreate(const char *pTitle, DWORD style, DWORD exStyle, HWND hParentWnd, int width, int height)
+	bool Window::privCreate(const char* pTitle, DWORD style, DWORD exStyle, HWND hParentWnd, int width, int height)
 	{
 		int outerW = width;
 		int outerH = height;
-		int posX   = CW_USEDEFAULT;
-		int posY   = CW_USEDEFAULT;
+		int posX = CW_USEDEFAULT;
+		int posY = CW_USEDEFAULT;
 
 		if (hParentWnd == nullptr)
 		{
@@ -141,49 +184,6 @@ namespace Neelam
 		UpdateWindow(this->privHandle);
 
 		return true;
-	}
-
-	void Window::Destroy()
-	{
-		if (this->privHandle != nullptr)
-		{
-			DestroyWindow(this->privHandle);
-			this->privHandle = nullptr;
-		}
-
-		if (this->privClassRegistered)
-		{
-			UnregisterClass(Window::privClassName, this->privModule);
-			this->privClassRegistered = false;
-		}
-	}
-
-	bool Window::ProcessMessages()
-	{
-		MSG msg;
-
-		while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
-		{
-			if (msg.message == WM_QUIT)
-			{
-				return false;
-			}
-
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-
-		return true;
-	}
-
-	HWND Window::GetHandle() const
-	{
-		return this->privHandle;
-	}
-
-	HINSTANCE Window::GetModule() const
-	{
-		return this->privModule;
 	}
 
 	//-----------------------------------------------------------------

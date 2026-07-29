@@ -6,8 +6,8 @@
 #define ENGINE_H
 
 #include "Window.h"
-#include "VulkanInstance.h"
-#include "VulkanSurface.h"
+#include "Instance.h"
+#include "Surface.h"
 
 #include "AnimTimer.h"		// Azul::AnimTimer -- the per-frame delta clock
 
@@ -92,9 +92,9 @@ namespace Neelam
 		// (and later a device/swapchain built here) can reach the instance
 		// and surface.
 		//-----------------------------------------------------------------
-		Window         window;
-		VulkanInstance instance;
-		VulkanSurface  surface;
+		vk::Window   window;
+		vk::Instance instance;
+		vk::Surface  surface;
 
 	private:
 		Azul::AnimTimer privFrameTimer;

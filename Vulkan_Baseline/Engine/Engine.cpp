@@ -39,8 +39,8 @@ namespace Neelam
 		// a failed VkResult, so there is no status to branch on here.
 		this->instance.Create("Neelam Engine");
 		this->surface.Create(this->instance.GetInstance(),
-			this->window.GetModule(),
-			this->window.GetHandle());
+							 this->window.GetModule(),
+							 this->window.GetHandle());
 
 		// Hand off to the game to load its content.
 		this->LoadContent();

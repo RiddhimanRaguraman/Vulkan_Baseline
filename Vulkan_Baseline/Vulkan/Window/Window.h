@@ -10,7 +10,7 @@
 //
 // Owns a single Win32 window: registers the window class, creates the HWND
 // and pumps its message queue. Nothing Vulkan lives in here -- the window
-// only hands out the HWND / HINSTANCE that VulkanSurface needs to build a
+// only hands out the HWND / HINSTANCE that Surface needs to build a
 // VkSurfaceKHR from.
 //
 // Two ways to create it:
@@ -24,7 +24,7 @@
 // Windows.h is already pulled in by the force-included Framework.h.
 //---------------------------------------------------------------------------
 
-namespace Neelam
+namespace Neelam::vk
 {
 	class Window
 	{

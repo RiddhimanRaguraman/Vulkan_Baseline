@@ -2,22 +2,22 @@
 // Copyright 2026 by Riddhiman Raguraman
 //-----------------------------------------------------------------
 
-#include "VulkanSurface.h"
+#include "Surface.h"
 
-namespace Neelam
+namespace Neelam::vk
 {
-	VulkanSurface::VulkanSurface()
+	Surface::Surface()
 		: privInstance(VK_NULL_HANDLE),
 		  privSurface(VK_NULL_HANDLE)
 	{
 	}
 
-	VulkanSurface::~VulkanSurface()
+	Surface::~Surface()
 	{
 		this->Destroy();
 	}
 
-	void VulkanSurface::Create(VkInstance instance, HINSTANCE module, HWND hwnd)
+	void Surface::Create(VkInstance instance, HINSTANCE module, HWND hwnd)
 	{
 		this->privInstance = instance;
 
@@ -28,10 +28,10 @@ namespace Neelam
 		createInfo.hinstance = module;
 		createInfo.hwnd      = hwnd;
 
-		vkAssert(vkCreateWin32SurfaceKHR(instance, &createInfo, nullptr, &this->privSurface));
+		VK_Try(vkCreateWin32SurfaceKHR(instance, &createInfo, nullptr, &this->privSurface));
 	}
 
-	void VulkanSurface::Destroy()
+	void Surface::Destroy()
 	{
 		if (this->privSurface != VK_NULL_HANDLE)
 		{
@@ -42,7 +42,7 @@ namespace Neelam
 		this->privInstance = VK_NULL_HANDLE;
 	}
 
-	VkSurfaceKHR VulkanSurface::GetSurface() const
+	VkSurfaceKHR Surface::GetSurface() const
 	{
 		return this->privSurface;
 	}

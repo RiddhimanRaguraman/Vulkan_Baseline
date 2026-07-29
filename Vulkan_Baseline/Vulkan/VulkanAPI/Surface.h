@@ -2,42 +2,43 @@
 // Copyright 2026 by Riddhiman Raguraman
 //-----------------------------------------------------------------
 
-#ifndef VULKAN_INSTANCE_H
-#define VULKAN_INSTANCE_H
+#ifndef SURFACE_H
+#define SURFACE_H
 
 #include "VulkanUtilities.h"
 
 //---------------------------------------------------------------------------
-// class VulkanInstance
+// class Surface
 //
-// Owns the VkInstance -- the root Vulkan object every other call hangs off.
-// It is created with the two surface extensions turned on:
+// Bridges the Win32 window to Vulkan: turns an HWND into a VkSurfaceKHR,
+// which is what a swapchain later gets presented to.
 //
-//     VK_KHR_surface         -- generic surface support
-//     VK_KHR_win32_surface   -- the Win32 flavour, needed by VulkanSurface
+// This is the piece that needs the VK_USE_PLATFORM_WIN32_KHR macro. That
+// macro is defined project-wide in premake5.lua, and without it neither
+// VkWin32SurfaceCreateInfoKHR nor vkCreateWin32SurfaceKHR is declared --
+// the Win32 half of the Vulkan headers compiles out entirely.
 //
-// We include the C++ bindings <vulkan/vulkan.hpp>, which pulls in the C header
-// <vulkan/vulkan.h> for us -- so the plain C API used below stays available
-// while leaving the door open to layer vk:: RAII types on top later.
+// The surface does NOT own the VkInstance it is created from; the instance
+// must outlive the surface (destroy the surface first).
 //---------------------------------------------------------------------------
 
-namespace Neelam
+namespace Neelam::vk
 {
-	class VulkanInstance
+	class Surface
 	{
 	public:
 		//-----------------------------------------------------------------
 		// Constructors / Destructors
 		//-----------------------------------------------------------------
-		VulkanInstance();
-		VulkanInstance(const VulkanInstance &) = delete;
-		VulkanInstance &operator = (const VulkanInstance &) = delete;
-		~VulkanInstance();
+		Surface();
+		Surface(const Surface &) = delete;
+		Surface &operator = (const Surface &) = delete;
+		~Surface();
 
 		//-----------------------------------------------------------------
 		// Lifetime
 		//-----------------------------------------------------------------
-		void Create(const char *pAppName);
+		void Create(VkInstance instance, HINSTANCE module, HWND hwnd);
 
 		// Safe to call more than once; the destructor calls it too.
 		void Destroy();
@@ -45,14 +46,15 @@ namespace Neelam
 		//-----------------------------------------------------------------
 		// Accessors
 		//-----------------------------------------------------------------
-		VkInstance GetInstance() const;
+		VkSurfaceKHR GetSurface() const;
 
 	private:
 		// Data
-		VkInstance privInstance;
+		VkInstance   privInstance;		// borrowed, not owned
+		VkSurfaceKHR privSurface;
 	};
 }
 
-#endif   // VULKAN_INSTANCE_H
+#endif   // SURFACE_H
 
 // ---  End of File ---
