@@ -8,8 +8,9 @@
 #include "Window.h"
 #include "Instance.h"
 #include "Surface.h"
+#include "PhysicalDevice.h"
 
-#include "AnimTimer.h"		// Azul::AnimTimer -- the per-frame delta clock
+#include "AnimTimer.h"		
 
 //---------------------------------------------------------------------------
 // class Engine  (Template Method base)
@@ -92,9 +93,10 @@ namespace Neelam
 		// (and later a device/swapchain built here) can reach the instance
 		// and surface.
 		//-----------------------------------------------------------------
-		vk::Window   window;
-		vk::Instance instance;
-		vk::Surface  surface;
+		vk::Window         window;
+		vk::Instance       instance;
+		vk::Surface        surface;
+		vk::PhysicalDevice physicalDevice;
 
 	private:
 		Azul::AnimTimer privFrameTimer;

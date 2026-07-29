@@ -55,35 +55,11 @@ namespace Neelam::vk
 		VkInstance GetInstance() const;
 
 	private:
-		//-----------------------------------------------------------------
-		// Validation (Debug only) -- see Instance.cpp.
-		//-----------------------------------------------------------------
-#ifdef _DEBUG
-		static const bool privEnableValidation = true;
-#else
-		static const bool privEnableValidation = false;
-#endif
-
-		// Is VK_LAYER_KHRONOS_validation actually installed on this machine?
-		bool privCheckValidationLayerSupport() const;
-
-		// Fill a messenger create-info (shared by the instance-create pNext
-		// chain and the standalone messenger below).
-		static void privFillMessengerInfo(VkDebugUtilsMessengerCreateInfoEXT &info);
-
-		// The messenger's lifetime is tied to the instance.
-		void privCreateDebugMessenger();
-		void privDestroyDebugMessenger();
-
-		// Where the validation layer sends every message.
-		static VKAPI_ATTR VkBool32 VKAPI_CALL privDebugCallback(
-			VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-			VkDebugUtilsMessageTypeFlagsEXT type,
-			const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-			void *pUserData);
-
 		// Data
 		VkInstance               privInstance;
+
+		// Owns the validation messenger's lifetime (Debug only; the boilerplate
+		// to build it lives in VulkanUtilities.h -> Validation::).
 		VkDebugUtilsMessengerEXT privDebugMessenger;
 	};
 }

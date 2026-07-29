@@ -85,6 +85,132 @@ static inline void vkAssertImpl(VkResult result, const char *file, int line) noe
 // Macro to call the assertion for Vulkan Code
 #define VK_Try(expr) vkAssertImpl((expr), __FILE__, __LINE__)
 
+// -------------------------------------------------------------------------
+//                      Validation layer helpers
+//
+// All the debug-messenger boilerplate lives here so the Instance code that
+// USES it stays short and readable. Instance just holds the messenger handle
+// and calls Validation::IsSupported / FillMessengerInfo / CreateMessenger /
+// DestroyMessenger. See Instance.cpp.
+//
+// Validation is Debug-only (Validation::Enabled): the layer adds real per-call
+// overhead you do not want in Release.
+// -------------------------------------------------------------------------
+namespace Neelam::vk::Validation
+{
+#ifdef _DEBUG
+	static const bool Enabled = true;
+#else
+	static const bool Enabled = false;
+#endif
+
+	// The single layer we ask for. It ships with the Vulkan SDK.
+	static const char *const LayerName = "VK_LAYER_KHRONOS_validation";
+
+	// Is that layer actually installed? Requesting a missing layer makes
+	// vkCreateInstance fail with VK_ERROR_LAYER_NOT_PRESENT, so check first.
+	static inline bool IsSupported()
+	{
+		uint32_t count = 0;
+		vkEnumerateInstanceLayerProperties(&count, nullptr);
+
+		VkLayerProperties *pAvailable = new VkLayerProperties[count];
+		vkEnumerateInstanceLayerProperties(&count, pAvailable);
+
+		bool found = false;
+		for (uint32_t i = 0; i < count; i++)
+		{
+			if (strcmp(pAvailable[i].layerName, LayerName) == 0)
+			{
+				found = true;
+				break;
+			}
+		}
+
+		delete[] pAvailable;
+		return found;
+	}
+
+	// Where every validation message lands -- routed to Trace::out so it shows
+	// up in the VS Output window next to the rest of the engine's logging.
+	static inline VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
+		VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+		VkDebugUtilsMessageTypeFlagsEXT type,
+		const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+		void *pUserData)
+	{
+		AZUL_UNUSED_VAR(type);
+		AZUL_UNUSED_VAR(pUserData);
+
+		const char *pSeverity =
+			(severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)   ? "ERROR" :
+			(severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) ? "WARN"  :
+																		   "INFO";
+
+		Trace::out("[Vulkan %s] %s\n", pSeverity, pCallbackData->pMessage);
+
+		// VK_FALSE: do not abort the Vulkan call that triggered the message.
+		return VK_FALSE;
+	}
+
+	// Messenger settings (warnings + errors -- info/verbose are noisy). Shared
+	// by the instance-create pNext chain and the standalone messenger.
+	static inline void FillMessengerInfo(VkDebugUtilsMessengerCreateInfoEXT &info)
+	{
+		info = {};
+		info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+		info.messageSeverity =
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+		info.messageType =
+			VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+		info.pfnUserCallback = DebugCallback;
+	}
+
+	// vkCreate/DestroyDebugUtilsMessengerEXT are EXTENSION entry points -- the
+	// static loader library does not export them, so their addresses must be
+	// fetched at runtime with vkGetInstanceProcAddr. (This hand-loading is
+	// exactly the boilerplate a meta-loader like volk would do automatically.)
+	static inline VkDebugUtilsMessengerEXT CreateMessenger(VkInstance instance)
+	{
+		PFN_vkCreateDebugUtilsMessengerEXT pCreate =
+			(PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
+				instance, "vkCreateDebugUtilsMessengerEXT");
+
+		if (pCreate == nullptr)
+		{
+			Trace::out("Validation: vkCreateDebugUtilsMessengerEXT unavailable\n");
+			return VK_NULL_HANDLE;
+		}
+
+		VkDebugUtilsMessengerCreateInfoEXT info;
+		FillMessengerInfo(info);
+
+		VkDebugUtilsMessengerEXT messenger = VK_NULL_HANDLE;
+		VK_Try(pCreate(instance, &info, nullptr, &messenger));
+		return messenger;
+	}
+
+	static inline void DestroyMessenger(VkInstance instance, VkDebugUtilsMessengerEXT messenger)
+	{
+		if (messenger == VK_NULL_HANDLE)
+		{
+			return;
+		}
+
+		PFN_vkDestroyDebugUtilsMessengerEXT pDestroy =
+			(PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
+				instance, "vkDestroyDebugUtilsMessengerEXT");
+
+		if (pDestroy != nullptr)
+		{
+			pDestroy(instance, messenger, nullptr);
+		}
+	}
+}
+
 #endif   // VULKAN_UTILITIES_H
 
 // ---  End of File ---

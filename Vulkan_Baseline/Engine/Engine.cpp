@@ -14,6 +14,7 @@ namespace Neelam
 		: window(),
 		  instance(),
 		  surface(),
+		  physicalDevice(),
 		  privFrameTimer(),
 		  privInitialized(false)
 	{
@@ -41,6 +42,11 @@ namespace Neelam
 		this->surface.Create(this->instance.GetInstance(),
 							 this->window.GetModule(),
 							 this->window.GetHandle());
+
+		// Pick the GPU. Needs the surface too, so it can verify the surface
+		// supports the format the swapchain will later request.
+		this->physicalDevice.Create(this->instance.GetInstance(),
+									this->surface.GetSurface());
 
 		// Hand off to the game to load its content.
 		this->LoadContent();
@@ -101,8 +107,10 @@ namespace Neelam
 
 		this->UnloadContent();	// -> Game
 
-		// Reverse of Initialize: the surface is created FROM the instance, so
-		// it must go first. Each Destroy is idempotent.
+		// Reverse of Initialize. The physical device is only a borrowed handle
+		// (nothing to release), but tear down in reverse order for discipline:
+		// surface is created FROM the instance, so surface before instance.
+		this->physicalDevice.Destroy();
 		this->surface.Destroy();
 		this->instance.Destroy();
 		this->window.Destroy();
