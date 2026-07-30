@@ -20,9 +20,14 @@
 
 int main()
 {
+	// Names this (the main / engine) thread and starts the thread framework's
+	// Debug system, so every Debug::out below shows which thread it came from.
+	// The engine loop runs right here on this thread -- hence "EngineThread".
+	START_BANNER_MAIN("EngineThread");
+
 	// Quick sanity ping through the Azul math library (a lib, still Azul::).
 	Azul::Vec3 v(1.4f, 1.5f, 1.6f);
-	Trace::out("%f ,%f, %f\n", v.x(), v.y(), v.z());
+	Debug::out("%f ,%f, %f\n", v.x(), v.y(), v.z());
 
 	Neelam::Game game;
 

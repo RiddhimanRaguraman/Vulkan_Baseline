@@ -56,12 +56,12 @@ namespace Neelam::vk
 
 		if (this->privGraphicsFamilyIndex == privInvalidIndex)
 		{
-			Trace::out("QueueFamily: no graphics+present queue family found\n");
+			Debug::out("QueueFamily: no graphics+present queue family found\n");
 			assert(false);
 			ExitProcess(1);
 		}
 
-		Trace::out("QueueFamily: graphics+present family index = %u\n",
+		Debug::out("QueueFamily: graphics+present family index = %u\n",
 			this->privGraphicsFamilyIndex);
 	}
 

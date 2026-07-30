@@ -316,6 +316,19 @@ project "Vulkan_Baseline"
 	-- which this static lib defines.
 	links { "ThirdParty" }
 
+	-- DXC (DirectX Shader Compiler) -- compiles HLSL to SPIR-V at RUNTIME, for
+	-- hot-reloadable shaders. This one IS a normal import lib (unlike volk), so
+	-- we link dxcompiler.lib from the SDK and copy dxcompiler.dll next to the
+	-- exe. (dxil.dll is only needed for DXIL/DirectX output, not SPIR-V.)
+	libdirs { vulkanSDK .. "/Lib" }
+	links   { "dxcompiler" }
+
+	filter "action:vs*"
+		postbuildcommands {
+			'copy /Y "' .. vulkanSDK .. '\\Bin\\dxcompiler.dll" "$(OutDir)" >nul'
+		}
+	filter {}
+
 	-- The app force-includes Framework.h directly (no pch of its own).
 	forceincludes { "Framework.h" }
 

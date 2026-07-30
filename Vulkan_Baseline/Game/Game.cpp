@@ -7,7 +7,9 @@
 namespace Neelam
 {
 	Game::Game()
-		: Engine()
+		: Engine(),
+		  triangleShader(),
+		  shaderWatcher()
 	{
 	}
 
@@ -22,7 +24,16 @@ namespace Neelam
 	//-----------------------------------------------------------------
 	void Game::LoadContent()
 	{
-		Trace::out("Game: LoadContent\n");
+		Debug::out("Game: LoadContent\n");
+
+		// Build the triangle technique (compiles HLSL -> SPIR-V -> pipeline).
+		// The swapchain's color format is what the pipeline renders into.
+		this->triangleShader.Create(this->logicalDevice.GetDevice(),
+									this->swapchain.GetColorFormat());
+
+		// Start the background watcher on the shader folder. From here on,
+		// saving a .hlsl posts a message that Update() picks up (see below).
+		this->shaderWatcher.Start(SOLUTION_DIR "Vulkan_Baseline\\Shader\\hlsl");
 	}
 
 	//-----------------------------------------------------------------
@@ -31,7 +42,11 @@ namespace Neelam
 	//-----------------------------------------------------------------
 	void Game::UnloadContent()
 	{
-		Trace::out("Game: UnloadContent\n");
+		Debug::out("Game: UnloadContent\n");
+
+		// Stop the watcher thread before tearing the shader down.
+		this->shaderWatcher.Stop();
+		this->triangleShader.Destroy();
 	}
 
 	//-----------------------------------------------------------------
@@ -42,7 +57,13 @@ namespace Neelam
 	void Game::Update(float deltaTime)
 	{
 		AZUL_UNUSED_VAR(deltaTime);
-		// no-op until there is content to update
+
+		// Drain the watcher's mailbox (engine thread side of the actor split).
+		// If a .hlsl was edited, rebuild the pipeline from the new source.
+		if (this->shaderWatcher.Drain())
+		{
+			this->triangleShader.Reload();
+		}
 	}
 
 	//-----------------------------------------------------------------
@@ -52,7 +73,10 @@ namespace Neelam
 	//-----------------------------------------------------------------
 	void Game::Render()
 	{
-		// no-op until there is a pipeline to draw with
+		// The pipeline exists (triangleShader), but there is no command buffer
+		// / frame loop yet -- so nothing is drawn to the window this step. Next
+		// step: acquire a swapchain image, begin dynamic rendering,
+		// triangleShader.SetActive(cmd), vkCmdDraw(cmd, 3, 1, 0, 0), present.
 	}
 }
 

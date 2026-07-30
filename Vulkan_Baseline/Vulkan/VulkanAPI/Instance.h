@@ -18,7 +18,7 @@
 //
 // In DEBUG builds it also turns on the validation layer
 // (VK_LAYER_KHRONOS_validation) plus the debug-utils messenger, which routes
-// the layer's messages into Trace::out. Without validation, a wrong struct
+// the layer's messages into Debug::out. Without validation, a wrong struct
 // field is a silent black screen or crash; with it, you get a plain-English
 // error naming the exact problem. It is Debug-only because the layer adds real
 // per-call overhead you do not want in Release.

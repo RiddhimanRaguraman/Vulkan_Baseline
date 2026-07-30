@@ -25,7 +25,7 @@ namespace Neelam::vk
 
 		if (count == 0)
 		{
-			Trace::out("PhysicalDevice: no Vulkan-capable GPU found\n");
+			Debug::out("PhysicalDevice: no Vulkan-capable GPU found\n");
 			assert(false);
 			ExitProcess(1);
 		}
@@ -54,12 +54,12 @@ namespace Neelam::vk
 
 		delete[] pDevices;
 
-		Trace::out("PhysicalDevice: using \"%s\"\n", this->privProperties.deviceName);
+		Debug::out("PhysicalDevice: using \"%s\"\n", this->privProperties.deviceName);
 
 		// ---- verify the surface offers the format the swapchain will want ----
 		if (!this->privSurfaceSupportsFormat(surface, desiredFormat))
 		{
-			Trace::out("PhysicalDevice: surface does not support requested format (%d)\n",
+			Debug::out("PhysicalDevice: surface does not support requested format (%d)\n",
 				(int)desiredFormat);
 			assert(false);
 			ExitProcess(1);

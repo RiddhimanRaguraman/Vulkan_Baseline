@@ -39,7 +39,7 @@ namespace Neelam::vk
 			{
 				// Not fatal: a machine with only the runtime driver (no SDK)
 				// simply runs without validation.
-				Trace::out("Instance: %s not found (install the Vulkan SDK?) "
+				Debug::out("Instance: %s not found (install the Vulkan SDK?) "
 					"-- continuing without validation\n", Validation::LayerName);
 			}
 		}

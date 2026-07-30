@@ -137,7 +137,7 @@ namespace Neelam::vk
 
 		VK_Try(vkCreateImageView(device, &depthViewInfo, nullptr, &this->privDepthImageView));
 
-		Trace::out("Swapchain: created (%u images, %ux%u)\n",
+		Debug::out("Swapchain: created (%u images, %ux%u)\n",
 			this->privImageCount, this->privExtent.width, this->privExtent.height);
 	}
 

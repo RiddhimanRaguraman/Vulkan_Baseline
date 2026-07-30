@@ -76,7 +76,7 @@ static inline void vkAssertImpl(VkResult result, const char *file, int line) noe
 	{
 		// Print the raw code alongside the name so an enum the switch does not
 		// know yet is still identifiable from the log.
-		Trace::out("%s(%d): <double-click> \nvkAssert failed: %s (%d)\n",
+		Debug::out("%s(%d): <double-click> \nvkAssert failed: %s (%d)\n",
 			file,
 			line,
 			vkResultToString(result),
@@ -136,7 +136,7 @@ namespace Neelam::vk::Validation
 		return found;
 	}
 
-	// Where every validation message lands -- routed to Trace::out so it shows
+	// Where every validation message lands -- routed to Debug::out so it shows
 	// up in the VS Output window next to the rest of the engine's logging.
 	static inline VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT severity,
@@ -152,7 +152,7 @@ namespace Neelam::vk::Validation
 			(severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) ? "WARN"  :
 																		   "INFO";
 
-		Trace::out("[Vulkan %s] %s\n", pSeverity, pCallbackData->pMessage);
+		Debug::out("[Vulkan %s] %s\n", pSeverity, pCallbackData->pMessage);
 
 		// VK_FALSE: do not abort the Vulkan call that triggered the message.
 		return VK_FALSE;
@@ -186,7 +186,7 @@ namespace Neelam::vk::Validation
 
 		if (pCreate == nullptr)
 		{
-			Trace::out("Validation: vkCreateDebugUtilsMessengerEXT unavailable\n");
+			Debug::out("Validation: vkCreateDebugUtilsMessengerEXT unavailable\n");
 			return VK_NULL_HANDLE;
 		}
 

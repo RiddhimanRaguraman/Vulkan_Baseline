@@ -73,7 +73,7 @@ namespace Neelam::vk
 			!supported12.timelineSemaphore ||
 			!supported12.bufferDeviceAddress)		// VMA is created with the
 		{											// BUFFER_DEVICE_ADDRESS flag
-			Trace::out("LogicalDevice: GPU missing required features "
+			Debug::out("LogicalDevice: GPU missing required features "
 				"(dynamicRendering / synchronization2 / timelineSemaphore / bufferDeviceAddress)\n");
 			assert(false);
 			ExitProcess(1);
@@ -128,7 +128,7 @@ namespace Neelam::vk
 				this->privQueues[i].familyIndex, 0, &this->privQueues[i].queue);
 		}
 
-		Trace::out("LogicalDevice: created (%u queue(s))\n", this->privQueueCount);
+		Debug::out("LogicalDevice: created (%u queue(s))\n", this->privQueueCount);
 	}
 
 	void LogicalDevice::Destroy()

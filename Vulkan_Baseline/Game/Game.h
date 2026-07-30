@@ -6,6 +6,8 @@
 #define GAME_H
 
 #include "Engine.h"
+#include "ShaderObject_ColorByVertex.h"
+#include "ShaderWatcher.h"
 
 //---------------------------------------------------------------------------
 // class Game
@@ -37,6 +39,11 @@ namespace Neelam
 		virtual void UnloadContent()         override;
 		virtual void Update(float deltaTime) override;
 		virtual void Render()                override;
+
+	private:
+		// The triangle technique + the background watcher that hot-reloads it.
+		vk::ShaderObject_ColorByVertex triangleShader;
+		vk::ShaderWatcher              shaderWatcher;
 	};
 }
 

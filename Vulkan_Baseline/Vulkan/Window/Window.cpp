@@ -124,7 +124,7 @@ namespace Neelam::vk
 
 		if (RegisterClassEx(&wc) == 0)
 		{
-			Trace::out("Window: RegisterClassEx failed (%lu)\n", GetLastError());
+			Debug::out("Window: RegisterClassEx failed (%lu)\n", GetLastError());
 			return false;
 		}
 
@@ -176,7 +176,7 @@ namespace Neelam::vk
 
 		if (this->privHandle == nullptr)
 		{
-			Trace::out("Window: CreateWindowEx failed (%lu)\n", GetLastError());
+			Debug::out("Window: CreateWindowEx failed (%lu)\n", GetLastError());
 			return false;
 		}
 

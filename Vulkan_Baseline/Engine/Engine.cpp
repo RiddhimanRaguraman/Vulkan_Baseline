@@ -85,7 +85,7 @@ namespace Neelam
 		this->privFrameTimer.Tic();
 		this->privInitialized = true;
 
-		Trace::out("Engine: initialized (%s)\n", hParentWnd ? "editor / child" : "standalone");
+		Debug::out("Engine: initialized (%s)\n", hParentWnd ? "editor / child" : "standalone");
 	}
 
 	//-----------------------------------------------------------------
@@ -157,7 +157,7 @@ namespace Neelam
 
 		this->privInitialized = false;
 
-		Trace::out("Engine: shutdown clean\n");
+		Debug::out("Engine: shutdown clean\n");
 	}
 
 	HWND Engine::GetWindowHandle() const

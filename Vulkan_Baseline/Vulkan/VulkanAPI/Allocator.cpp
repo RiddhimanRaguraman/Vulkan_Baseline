@@ -38,7 +38,7 @@ namespace Neelam::vk
 
 		VK_Try(vmaCreateAllocator(&createInfo, &this->privAllocator));
 
-		Trace::out("Allocator: VMA allocator created\n");
+		Debug::out("Allocator: VMA allocator created\n");
 	}
 
 	void Allocator::Destroy()

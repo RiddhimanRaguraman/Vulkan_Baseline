@@ -147,7 +147,7 @@ constexpr const char* THREAD_FRAMEWORK_VER = "1.31";
 // ---------------------------------------------------------------------------
 
 // Enable Thread_Framework here <search>: THREAD_FRAMEWORK_START
-//#define USE_THREAD_FRAMEWORK
+#define USE_THREAD_FRAMEWORK
 
 // Comment out this line to turn off memory tracking
 #define MEM_TRACKER_ENABLED
