@@ -19,6 +19,11 @@ namespace Neelam::vk
 
 	void Instance::Create(const char *pAppName)
 	{
+		// volk: load vkGetInstanceProcAddr + the global entry points (this
+		// opens vulkan-1.dll). MUST run before any vk* call -- including the
+		// validation-layer query just below. Nothing works until this succeeds.
+		VK_Try(volkInitialize());
+
 		// Validation layer (Debug only, and only if it is installed). All the
 		// messenger boilerplate lives in VulkanUtilities.h -> Validation::.
 		const char *layers[1] = { Validation::LayerName };
@@ -76,6 +81,13 @@ namespace Neelam::vk
 		}
 
 		VK_Try(vkCreateInstance(&createInfo, nullptr, &this->privInstance));
+
+		// volk: now that the instance exists, load the instance-level and
+		// physical-device entry points (vkGetPhysicalDevice*, vkCreateDevice,
+		// vkCreateWin32SurfaceKHR, the debug-utils messenger fns, ...). Every
+		// object built after this -- surface, physical device, device -- relies
+		// on these pointers being live.
+		volkLoadInstance(this->privInstance);
 
 		// Standalone messenger: catches everything after instance creation.
 		if (layerCount > 0)

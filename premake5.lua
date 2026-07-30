@@ -309,11 +309,12 @@ project "Vulkan_Baseline"
 	-- the app uses must be listed here (and its *_USE_DLL define set below).
 	links { "Math", "File", "AnimTime" }
 
-	-- Vulkan loader. This is a prebuilt external library, not one of our
-	-- projects, so it is just an import lib + include path -- nothing is built
-	-- from source and no DLL is copied (see the vulkanSDK note at the top).
-	libdirs { vulkanSDK .. "/Lib" }		-- x64 libs ("Lib32" would be 32-bit)
-	links   { "vulkan-1" }
+	-- volk + VMA implementations (static lib). We no longer link vulkan-1.lib:
+	-- volk loads vulkan-1.dll itself at runtime (volkInitialize), so the import
+	-- library is not needed -- only the SDK include path (added above) for the
+	-- headers. vkCreateInstance and friends resolve to volk's function pointers,
+	-- which this static lib defines.
+	links { "ThirdParty" }
 
 	-- The app force-includes Framework.h directly (no pch of its own).
 	forceincludes { "Framework.h" }
@@ -349,6 +350,11 @@ project "Vulkan_Baseline"
 		-- Turns on the Win32 half of <vulkan/vulkan.h>: VkWin32SurfaceCreateInfoKHR
 		-- and vkCreateWin32SurfaceKHR. Without this, VulkanSurface will not compile.
 		"VK_USE_PLATFORM_WIN32_KHR",
+
+		-- We use volk: the vk* names are function POINTERS (defined in the
+		-- ThirdParty lib), not import-lib symbols. This suppresses the header's
+		-- prototype declarations so they don't clash with volk's pointers.
+		"VK_NO_PROTOTYPES",
 		'WINDOWS_TARGET_PLATFORM="$(TargetPlatformVersion)"',
 		'SOLUTION_DIR=R"($(SolutionDir))"',
 		'TOOLS_VERSION=R"($(VCToolsVersion))"',
@@ -397,4 +403,48 @@ group ""
 group "Tests"
 	defineUnitTest("MathTest", "MATH", "Math")
 	defineUnitTest("FileTest", "FILE", "File")
+group ""
+
+--=============================================================================
+-- ThirdParty: compiles the volk + VMA header-only implementations into a
+-- static lib. Kept SEPARATE from the app so it does NOT force-include
+-- Framework.h -- whose Debug #define new / #define malloc macros would corrupt
+-- VMA's C++ implementation. The app links this and only ever includes the
+-- volk / VMA *declarations* (from the SDK include path).
+--=============================================================================
+group "Vendor"
+	project "ThirdParty"
+		location   "ThirdParty"
+		language   "C++"
+		kind       "StaticLib"
+		cppdialect "C++17"
+		staticruntime "Off"			-- /MD(d): must match the app's runtime
+		characterset "MBCS"
+		toolset    "v143"
+
+		targetdir (outputBin)
+		objdir    (outputObj)
+
+		files { "ThirdParty/vk_impl.cpp" }
+
+		includedirs { vulkanSDK .. "/Include" }		-- <Volk/volk.h>, <vma/vk_mem_alloc.h>
+
+		-- No forceincludes, no pch on purpose (see the note above).
+		defines {
+			"VK_NO_PROTOTYPES",				-- volk provides vk* as function pointers
+			"VK_USE_PLATFORM_WIN32_KHR",	-- so volk defines vkCreateWin32SurfaceKHR
+			"NOMINMAX",						-- windows.h min/max would break VMA
+			"WIN32_LEAN_AND_MEAN"
+		}
+
+		filter "configurations:Debug"
+			runtime "Debug"
+			symbols "On"
+			defines { "_DEBUG" }
+
+		filter "configurations:Release"
+			runtime "Release"
+			optimize "On"
+			defines { "NDEBUG" }
+		filter {}
 group ""

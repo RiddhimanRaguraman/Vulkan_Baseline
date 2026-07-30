@@ -17,6 +17,8 @@ namespace Neelam
 		  physicalDevice(),
 		  queueFamily(),
 		  logicalDevice(),
+		  allocator(),
+		  swapchain(),
 		  privFrameTimer(),
 		  privInitialized(false)
 	{
@@ -60,6 +62,21 @@ namespace Neelam
 		// build. After this, GetQueue(...) hands back the real VkQueue.
 		this->logicalDevice.Add(this->queueFamily.GetGraphicsFamilyIndex());
 		this->logicalDevice.Create(this->physicalDevice.GetPhysicalDevice());
+
+		// VMA memory allocator -- built from instance + GPU + device. Must come
+		// after the device (volk's device pointers are loaded by now).
+		this->allocator.Create(this->instance.GetInstance(),
+							   this->physicalDevice.GetPhysicalDevice(),
+							   this->logicalDevice.GetDevice());
+
+		// Swapchain: the images we render into and present. Depth buffer is
+		// allocated through VMA, so this comes after the allocator. 1280x720 is
+		// a hint -- the surface's currentExtent decides the real size.
+		this->swapchain.Create(this->physicalDevice.GetPhysicalDevice(),
+							   this->logicalDevice.GetDevice(),
+							   this->surface.GetSurface(),
+							   this->allocator.GetAllocator(),
+							   1280, 720);
 
 		// Hand off to the game to load its content.
 		this->LoadContent();
@@ -123,6 +140,12 @@ namespace Neelam
 		// Reverse of Initialize. The physical device is only a borrowed handle
 		// (nothing to release), but tear down in reverse order for discipline:
 		// surface is created FROM the instance, so surface before instance.
+		// Swapchain uses the device + allocator (depth image), so it goes first.
+		this->swapchain.Destroy();
+
+		// The allocator lives on the device, so it must go before the device.
+		this->allocator.Destroy();
+
 		// The logical device owns real GPU state, so it must go before the
 		// things it was built from.
 		this->logicalDevice.Destroy();

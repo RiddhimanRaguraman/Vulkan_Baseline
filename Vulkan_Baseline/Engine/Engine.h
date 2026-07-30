@@ -11,6 +11,8 @@
 #include "PhysicalDevice.h"
 #include "QueueFamily.h"
 #include "LogicalDevice.h"
+#include "Allocator.h"
+#include "Swapchain.h"
 
 #include "AnimTimer.h"		
 
@@ -101,6 +103,8 @@ namespace Neelam
 		vk::PhysicalDevice physicalDevice;
 		vk::QueueFamily    queueFamily;
 		vk::LogicalDevice  logicalDevice;
+		vk::Allocator      allocator;
+		vk::Swapchain      swapchain;
 
 	private:
 		Azul::AnimTimer privFrameTimer;

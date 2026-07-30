@@ -70,10 +70,11 @@ namespace Neelam::vk
 
 		if (!supported13.dynamicRendering ||
 			!supported13.synchronization2 ||
-			!supported12.timelineSemaphore)
-		{
+			!supported12.timelineSemaphore ||
+			!supported12.bufferDeviceAddress)		// VMA is created with the
+		{											// BUFFER_DEVICE_ADDRESS flag
 			Trace::out("LogicalDevice: GPU missing required features "
-				"(dynamicRendering / synchronization2 / timelineSemaphore)\n");
+				"(dynamicRendering / synchronization2 / timelineSemaphore / bufferDeviceAddress)\n");
 			assert(false);
 			ExitProcess(1);
 		}
@@ -89,9 +90,10 @@ namespace Neelam::vk
 		features13.dynamicRendering = VK_TRUE;
 
 		VkPhysicalDeviceVulkan12Features features12 = {};
-		features12.sType             = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-		features12.pNext             = &features13;
-		features12.timelineSemaphore = VK_TRUE;
+		features12.sType               = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+		features12.pNext               = &features13;
+		features12.timelineSemaphore   = VK_TRUE;
+		features12.bufferDeviceAddress = VK_TRUE;	// required by VMA's BUFFER_DEVICE_ADDRESS flag
 
 		VkPhysicalDeviceFeatures2 features2 = {};
 		features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
@@ -111,6 +113,11 @@ namespace Neelam::vk
 		createInfo.pEnabledFeatures        = nullptr;		// must be null when pNext has features2
 
 		VK_Try(vkCreateDevice(physicalDevice, &createInfo, nullptr, &this->privDevice));
+
+		// volk: upgrade the device-level entry points to DIRECT dispatch (they
+		// skip the loader trampoline now that we have the device). Must run
+		// before any device call below -- e.g. vkGetDeviceQueue.
+		volkLoadDevice(this->privDevice);
 
 		// ---- fetch the actual VkQueue for each requested family ----
 		// (queue index 0 -- we asked for one queue per family). This is where

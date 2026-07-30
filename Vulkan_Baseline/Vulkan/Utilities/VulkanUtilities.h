@@ -5,7 +5,12 @@
 #ifndef VULKAN_UTILITIES_H
 #define VULKAN_UTILITIES_H
 
-#include <vulkan/vulkan.hpp>
+// volk is the single Vulkan include for the whole engine. It defines
+// VK_NO_PROTOTYPES and pulls in <vulkan/vulkan.h>, exposing every vk* name as
+// a function POINTER that volkInitialize / volkLoadInstance / volkLoadDevice
+// fill in at runtime (see Instance.cpp / LogicalDevice.cpp). The definitions
+// live in the ThirdParty static lib; here we only get the declarations.
+#include <Volk/volk.h>
 
 // -------------------------------------------------------------------------
 //                      vkAssert
