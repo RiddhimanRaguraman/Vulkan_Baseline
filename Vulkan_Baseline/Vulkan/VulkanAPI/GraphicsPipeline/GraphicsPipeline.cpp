@@ -15,8 +15,17 @@ namespace Neelam::vk
 		  privTimelineSemaphore(VK_NULL_HANDLE),
 		  privFrameIndex(0),
 		  privNextSignalValue(0),
-		  privSwapchainStale(false)
+		  privSwapchainStale(false),
+		  privClearColor{}
 	{
+		// Build-differentiating clear color: glance at the background and you
+		// know which build is running (matches the old Azul renderer's choice).
+		// Colors::* are Vec4s; Neelam::Color converts from Vec4.
+#ifdef _DEBUG
+		this->privClearColor = Colors::LightGray;
+#else
+		this->privClearColor = Colors::Wheat;
+#endif
 	}
 
 	GraphicsPipeline::~GraphicsPipeline()
@@ -179,10 +188,10 @@ namespace Neelam::vk
 		colorAttach.imageLayout                 = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		colorAttach.loadOp                      = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		colorAttach.storeOp                     = VK_ATTACHMENT_STORE_OP_STORE;
-		colorAttach.clearValue.color.float32[0] = 0.01f;
-		colorAttach.clearValue.color.float32[1] = 0.01f;
-		colorAttach.clearValue.color.float32[2] = 0.01f;
-		colorAttach.clearValue.color.float32[3] = 1.0f;
+		colorAttach.clearValue.color.float32[0] = this->privClearColor.red;
+		colorAttach.clearValue.color.float32[1] = this->privClearColor.green;
+		colorAttach.clearValue.color.float32[2] = this->privClearColor.blue;
+		colorAttach.clearValue.color.float32[3] = this->privClearColor.alpha;
 
 		VkRenderingAttachmentInfo depthAttach = {};
 		depthAttach.sType                             = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -343,6 +352,11 @@ namespace Neelam::vk
 	void GraphicsPipeline::ClearSwapchainStale()
 	{
 		this->privSwapchainStale = false;
+	}
+
+	void GraphicsPipeline::SetClearColor(const Color &color)
+	{
+		this->privClearColor = color;
 	}
 }
 

@@ -8,6 +8,7 @@
 #include "VulkanUtilities.h"
 #include "Swapchain.h"
 #include "ShaderObject.h"
+#include "Color.h"
 
 //---------------------------------------------------------------------------
 // class GraphicsPipeline
@@ -55,6 +56,11 @@ namespace Neelam::vk
 		bool IsSwapchainStale() const;
 		void ClearSwapchainStale();
 
+		// The frame's clear color. Defaults to a BUILD-DIFFERENTIATING color
+		// (LightGray in Debug, Wheat in Release) so you can tell which build is
+		// running at a glance. Call this to override it.
+		void SetClearColor(const Color &color);
+
 	private:
 		static const uint32_t MaxFramesInFlight = 2;
 
@@ -83,6 +89,8 @@ namespace Neelam::vk
 		uint64_t    privNextSignalValue;
 
 		bool        privSwapchainStale;
+
+		Color       privClearColor;		// build-differentiating default (see .cpp)
 	};
 }
 
