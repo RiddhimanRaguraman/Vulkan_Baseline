@@ -216,6 +216,11 @@ namespace Neelam::vk
 		return this->privRenderCompleteSemaphores[i];
 	}
 
+	VkImage Swapchain::GetDepthImage() const
+	{
+		return this->privDepthImage;
+	}
+
 	VkImageView Swapchain::GetDepthImageView() const
 	{
 		return this->privDepthImageView;

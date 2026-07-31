@@ -27,9 +27,10 @@ namespace Neelam
 		Debug::out("Game: LoadContent\n");
 
 		// Build the triangle technique (compiles HLSL -> SPIR-V -> pipeline).
-		// The swapchain's color format is what the pipeline renders into.
+		// The pipeline bakes in the swapchain's color + depth formats.
 		this->triangleShader.Create(this->logicalDevice.GetDevice(),
-									this->swapchain.GetColorFormat());
+									this->swapchain.GetColorFormat(),
+									this->swapchain.GetDepthFormat());
 
 		// Start the background watcher on the shader folder. From here on,
 		// saving a .hlsl posts a message that Update() picks up (see below).
@@ -68,15 +69,13 @@ namespace Neelam
 
 	//-----------------------------------------------------------------
 	// Render -- once per frame, after Update.
-	//   Later: begin the command buffer / render pass (this also clears the
-	//   swapchain), walk the scene graph submitting draws, then present.
+	//   The whole frame loop lives in GraphicsPipeline (owned by Engine); Game
+	//   just hands it what to draw. Later this becomes a draw list / scene-graph
+	//   walk instead of a single hard-coded technique.
 	//-----------------------------------------------------------------
 	void Game::Render()
 	{
-		// The pipeline exists (triangleShader), but there is no command buffer
-		// / frame loop yet -- so nothing is drawn to the window this step. Next
-		// step: acquire a swapchain image, begin dynamic rendering,
-		// triangleShader.SetActive(cmd), vkCmdDraw(cmd, 3, 1, 0, 0), present.
+		this->graphicsPipeline.Render(this->triangleShader);
 	}
 }
 

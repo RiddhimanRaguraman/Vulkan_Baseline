@@ -19,6 +19,7 @@ namespace Neelam
 		  logicalDevice(),
 		  allocator(),
 		  swapchain(),
+		  graphicsPipeline(),
 		  privFrameTimer(),
 		  privInitialized(false)
 	{
@@ -78,6 +79,12 @@ namespace Neelam
 							   this->allocator.GetAllocator(),
 							   1280, 720);
 
+		// The frame loop: command buffers + sync, drawing into the swapchain.
+		this->graphicsPipeline.Create(this->logicalDevice.GetDevice(),
+									  this->logicalDevice.GetQueue(this->queueFamily.GetGraphicsFamilyIndex()),
+									  this->queueFamily.GetGraphicsFamilyIndex(),
+									  &this->swapchain);
+
 		// Hand off to the game to load its content.
 		this->LoadContent();
 
@@ -105,8 +112,44 @@ namespace Neelam
 			deltaTime = Engine::privMaxTimeStep;
 		}
 
+		// If the last frame found the swapchain out of date (resize/minimize),
+		// rebuild it before drawing again.
+		if (this->graphicsPipeline.IsSwapchainStale())
+		{
+			this->privRecreateSwapchain();
+			this->graphicsPipeline.ClearSwapchainStale();
+		}
+
 		this->Update(deltaTime);	// -> Game
-		this->Render();				// -> Game
+		this->Render();				// -> Game (drives graphicsPipeline.Render)
+	}
+
+	//-----------------------------------------------------------------
+	// Rebuild the swapchain in place at the window's current client size. The
+	// GraphicsPipeline borrows the swapchain by pointer and re-queries it each
+	// frame, so it transparently picks up the new images/views/semaphores.
+	//-----------------------------------------------------------------
+	void Engine::privRecreateSwapchain()
+	{
+		RECT rect = {};
+		GetClientRect(this->window.GetHandle(), &rect);
+		const uint32_t width  = (uint32_t)(rect.right - rect.left);
+		const uint32_t height = (uint32_t)(rect.bottom - rect.top);
+
+		// Minimized (0-size) -- nothing to build; try again next frame.
+		if (width == 0 || height == 0)
+		{
+			return;
+		}
+
+		vkDeviceWaitIdle(this->logicalDevice.GetDevice());
+
+		this->swapchain.Destroy();
+		this->swapchain.Create(this->physicalDevice.GetPhysicalDevice(),
+							   this->logicalDevice.GetDevice(),
+							   this->surface.GetSurface(),
+							   this->allocator.GetAllocator(),
+							   width, height);
 	}
 
 	//-----------------------------------------------------------------
@@ -135,12 +178,23 @@ namespace Neelam
 			return;
 		}
 
+		// Wait for the GPU to finish EVERYTHING before we start destroying the
+		// objects it used. Without this, UnloadContent() destroys the pipeline
+		// while the last frame's command buffer still references it -- a
+		// validation error (VUID-vkDestroyPipeline-pipeline-00765).
+		vkDeviceWaitIdle(this->logicalDevice.GetDevice());
+
 		this->UnloadContent();	// -> Game
 
 		// Reverse of Initialize. The physical device is only a borrowed handle
 		// (nothing to release), but tear down in reverse order for discipline:
 		// surface is created FROM the instance, so surface before instance.
-		// Swapchain uses the device + allocator (depth image), so it goes first.
+
+		// Frame loop first -- it waits for the GPU to go idle, then frees its
+		// command buffers + sync objects.
+		this->graphicsPipeline.Destroy();
+
+		// Swapchain uses the device + allocator (depth image).
 		this->swapchain.Destroy();
 
 		// The allocator lives on the device, so it must go before the device.

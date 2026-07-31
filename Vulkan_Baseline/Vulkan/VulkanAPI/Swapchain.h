@@ -59,6 +59,7 @@ namespace Neelam::vk
 		VkImage        GetImage(uint32_t i) const;
 		VkImageView    GetImageView(uint32_t i) const;
 		VkSemaphore    GetRenderCompleteSemaphore(uint32_t i) const;
+		VkImage        GetDepthImage() const;
 		VkImageView    GetDepthImageView() const;
 		VkExtent2D     GetExtent() const;
 		VkFormat       GetColorFormat() const;

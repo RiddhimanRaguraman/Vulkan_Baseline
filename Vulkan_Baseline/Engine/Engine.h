@@ -13,6 +13,7 @@
 #include "LogicalDevice.h"
 #include "Allocator.h"
 #include "Swapchain.h"
+#include "GraphicsPipeline.h"
 
 #include "AnimTimer.h"		
 
@@ -103,10 +104,15 @@ namespace Neelam
 		vk::PhysicalDevice physicalDevice;
 		vk::QueueFamily    queueFamily;
 		vk::LogicalDevice  logicalDevice;
-		vk::Allocator      allocator;
-		vk::Swapchain      swapchain;
+		vk::Allocator        allocator;
+		vk::Swapchain        swapchain;
+		vk::GraphicsPipeline graphicsPipeline;	// the frame loop; Game::Render drives it
 
 	private:
+		// Rebuild the swapchain in place at the window's current client size
+		// (called when the graphics pipeline reports it went out of date).
+		void privRecreateSwapchain();
+
 		Azul::AnimTimer privFrameTimer;
 		bool            privInitialized;
 

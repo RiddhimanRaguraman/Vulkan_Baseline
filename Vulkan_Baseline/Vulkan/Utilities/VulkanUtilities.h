@@ -136,8 +136,13 @@ namespace Neelam::vk::Validation
 		return found;
 	}
 
-	// Where every validation message lands -- routed to Debug::out so it shows
-	// up in the VS Output window next to the rest of the engine's logging.
+	// Where every validation message lands -- all through Keenan's Debug::out so
+	// each line is thread-tagged.
+	//
+	// Debug::out formats into a fixed buffer capped at 256 chars internally and
+	// ASSERTS ("Buffer too small") on overflow. Validation strings are often
+	// longer, so we memcpy the message into a bounded buffer and print it in
+	// CHUNKS -- every chunk stays under the cap, and nothing is lost.
 	static inline VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT severity,
 		VkDebugUtilsMessageTypeFlagsEXT type,
@@ -152,7 +157,31 @@ namespace Neelam::vk::Validation
 			(severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) ? "WARN"  :
 																		   "INFO";
 
-		Debug::out("[Vulkan %s] %s\n", pSeverity, pCallbackData->pMessage);
+		Debug::out("[Vulkan %s]\n", pSeverity);
+
+		const char *pMessage = pCallbackData->pMessage ? pCallbackData->pMessage : "(null)";
+
+		// 180 leaves headroom under the 256 cap for the tabs + "(ThreadName): "
+		// prefix Debug::out prepends.
+		const size_t chunkMax = 180;
+		char         chunk[chunkMax + 1];
+
+		size_t total  = strlen(pMessage);
+		size_t offset = 0;
+		do
+		{
+			size_t n = total - offset;
+			if (n > chunkMax)
+			{
+				n = chunkMax;
+			}
+
+			memcpy(chunk, pMessage + offset, n);
+			chunk[n] = '\0';
+
+			Debug::out("%s\n", chunk);		// chunk is the %s arg -> any '%' in it is safe
+			offset += n;
+		} while (offset < total);
 
 		// VK_FALSE: do not abort the Vulkan call that triggered the message.
 		return VK_FALSE;

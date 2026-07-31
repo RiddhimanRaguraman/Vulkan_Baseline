@@ -9,6 +9,7 @@ namespace Neelam::vk
 	ShaderObject::ShaderObject()
 		: privDevice(VK_NULL_HANDLE),
 		  privColorFormat(VK_FORMAT_UNDEFINED),
+		  privDepthFormat(VK_FORMAT_UNDEFINED),
 		  vertexShader(),
 		  pixelShader(),
 		  privLayout(VK_NULL_HANDLE),
@@ -21,10 +22,11 @@ namespace Neelam::vk
 		this->Destroy();
 	}
 
-	void ShaderObject::Create(VkDevice device, VkFormat colorFormat)
+	void ShaderObject::Create(VkDevice device, VkFormat colorFormat, VkFormat depthFormat)
 	{
 		this->privDevice      = device;
 		this->privColorFormat = colorFormat;
+		this->privDepthFormat = depthFormat;
 
 		// Compile the two stages (paths come from the derived technique).
 		this->vertexShader.Create(device, this->GetVertexPath(), ShaderStage::Vertex);
@@ -129,11 +131,15 @@ namespace Neelam::vk
 		multisample.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 		multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-		// Depth off for now (the swapchain's depth image is not attached here).
+		// Depth test + write on, LESS. The frame loop attaches the swapchain's
+		// depth image; the pipeline must declare it too (depthAttachmentFormat
+		// below) or validation flags the mismatch.
 		VkPipelineDepthStencilStateCreateInfo depthStencil = {};
 		depthStencil.sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-		depthStencil.depthTestEnable  = VK_FALSE;
-		depthStencil.depthWriteEnable = VK_FALSE;
+		depthStencil.depthTestEnable  = VK_TRUE;
+		depthStencil.depthWriteEnable = VK_TRUE;
+		depthStencil.depthCompareOp   = VK_COMPARE_OP_LESS;
+		depthStencil.stencilTestEnable = VK_FALSE;
 
 		VkPipelineColorBlendAttachmentState blendAttachment = {};
 		blendAttachment.blendEnable    = VK_FALSE;
@@ -158,6 +164,7 @@ namespace Neelam::vk
 		rendering.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
 		rendering.colorAttachmentCount    = 1;
 		rendering.pColorAttachmentFormats = &this->privColorFormat;
+		rendering.depthAttachmentFormat   = this->privDepthFormat;
 
 		VkGraphicsPipelineCreateInfo info = {};
 		info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;

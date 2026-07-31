@@ -40,9 +40,10 @@ namespace Neelam::vk
 		// Lifetime
 		//-----------------------------------------------------------------
 
-		// Compile VS+PS and build the pipeline. colorFormat is the swapchain's
-		// color format (dynamic rendering needs it up front).
-		void Create(VkDevice device, VkFormat colorFormat);
+		// Compile VS+PS and build the pipeline. colorFormat / depthFormat are
+		// the swapchain's formats (dynamic rendering bakes them into the
+		// pipeline, so they must match the frame loop's attachments).
+		void Create(VkDevice device, VkFormat colorFormat, VkFormat depthFormat);
 
 		// Recompile both shaders from disk and rebuild the pipeline. Waits for
 		// the device to be idle first. Called on the engine thread when the
@@ -70,6 +71,7 @@ namespace Neelam::vk
 		// Data
 		VkDevice         privDevice;
 		VkFormat         privColorFormat;
+		VkFormat         privDepthFormat;
 
 		ShaderModule     vertexShader;
 		ShaderModule     pixelShader;
