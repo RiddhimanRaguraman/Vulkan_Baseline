@@ -11,7 +11,6 @@
 #include "PhysicalDevice.h"
 #include "QueueFamily.h"
 #include "LogicalDevice.h"
-#include "Allocator.h"
 #include "Swapchain.h"
 #include "GraphicsPipeline.h"
 
@@ -104,7 +103,9 @@ namespace Neelam
 		vk::PhysicalDevice physicalDevice;
 		vk::QueueFamily    queueFamily;
 		vk::LogicalDevice  logicalDevice;
-		vk::Allocator        allocator;
+		// No allocator member: the VmaAllocator is vk::VulkanAllocator, a
+		// framework singleton (Framework.h). Engine drives its Create/Destroy in
+		// the staging order below; everyone else just calls Get().
 		vk::Swapchain        swapchain;
 		vk::GraphicsPipeline graphicsPipeline;	// the frame loop; Game::Render drives it
 

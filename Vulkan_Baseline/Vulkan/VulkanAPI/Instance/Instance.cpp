@@ -25,7 +25,7 @@ namespace Neelam::vk
 		VK_Try(volkInitialize());
 
 		// Validation layer (Debug only, and only if it is installed). All the
-		// messenger boilerplate lives in VulkanUtilities.h -> Validation::.
+		// messenger boilerplate lives in Framework.h -> Validation::.
 		const char *layers[1] = { Validation::LayerName };
 		uint32_t    layerCount = 0;
 

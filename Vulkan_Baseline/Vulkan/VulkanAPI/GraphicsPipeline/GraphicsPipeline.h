@@ -5,7 +5,7 @@
 #ifndef GRAPHICS_PIPELINE_H
 #define GRAPHICS_PIPELINE_H
 
-#include "VulkanUtilities.h"
+// Vulkan types come from the force-included Framework.h (VULKAN FRAMEWORK section).
 #include "Swapchain.h"
 #include "ShaderObject.h"
 #include "Color.h"

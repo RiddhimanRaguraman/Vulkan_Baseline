@@ -2,6 +2,14 @@
 // Copyright 2026 by Riddhiman Raguraman
 //-----------------------------------------------------------------
 
+// This TU is the ONE that compiles the framework's volk + VMA bodies.
+// Framework.h is force-included, so the macro cannot be set before that first
+// include -- including it a second time here is exactly how the implementation
+// block is reached (it sits outside the header guard, same as volk's and VMA's
+// own). See VULKAN_FRAMEWORK_IMPLEMENTATION in Framework.h.
+#define VULKAN_FRAMEWORK_IMPLEMENTATION
+#include "Framework.h"
+
 #include "MathEngine.h"
 
 #include "Game.h"
@@ -20,9 +28,6 @@
 
 int main()
 {
-	// Names this (the main / engine) thread and starts the thread framework's
-	// Debug system, so every Debug::out below shows which thread it came from.
-	// The engine loop runs right here on this thread -- hence "EngineThread".
 	START_BANNER_MAIN("EngineThread");
 
 	// Quick sanity ping through the Azul math library (a lib, still Azul::).

@@ -156,6 +156,9 @@ namespace Neelam::vk
 		}
 		if (this->privDepthImage != VK_NULL_HANDLE)
 		{
+			// Frees the VkImage and its VMA allocation together. Must happen
+			// before the allocator is destroyed -- VMA asserts on any block still
+			// live at vmaDestroyAllocator.
 			vmaDestroyImage(this->privAllocator, this->privDepthImage, this->privDepthAllocation);
 			this->privDepthImage      = VK_NULL_HANDLE;
 			this->privDepthAllocation = VK_NULL_HANDLE;

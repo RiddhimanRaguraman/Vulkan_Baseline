@@ -5,7 +5,7 @@
 #ifndef QUEUE_FAMILY_H
 #define QUEUE_FAMILY_H
 
-#include "VulkanUtilities.h"
+// Vulkan types come from the force-included Framework.h (VULKAN FRAMEWORK section).
 
 //---------------------------------------------------------------------------
 // class QueueFamily

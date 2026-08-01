@@ -5,7 +5,7 @@
 #ifndef SURFACE_H
 #define SURFACE_H
 
-#include "VulkanUtilities.h"
+// Vulkan types come from the force-included Framework.h (VULKAN FRAMEWORK section).
 
 //---------------------------------------------------------------------------
 // class Surface

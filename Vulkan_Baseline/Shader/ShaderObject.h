@@ -5,7 +5,7 @@
 #ifndef SHADER_OBJECT_H
 #define SHADER_OBJECT_H
 
-#include "VulkanUtilities.h"
+// Vulkan types come from the force-included Framework.h (VULKAN FRAMEWORK section).
 #include "ShaderModule.h"
 
 //---------------------------------------------------------------------------

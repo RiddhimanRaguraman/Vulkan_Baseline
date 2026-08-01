@@ -43,9 +43,11 @@ local outputBin = "%{wks.location}/x64/%{cfg.buildcfg}"
 -- split per project+config -- never scattered inside the project folders.
 local outputObj = "%{wks.location}/obj/" .. outputdir .. "/%{prj.name}"
 
--- Framework is header-only (just Framework.h) and lives in the app folder.
--- Every project force-includes it, so put its folder on the include path.
-local frameworkDir = "Vulkan_Baseline/Framework"
+-- The framework is COMMON to every project in the solution -- the libs, their
+-- tests, and the app all force-include Framework.h -- so it sits at the
+-- solution root next to Libs/ and Vendor/, not inside the app's folder.
+-- Every project puts this on its include path.
+local frameworkDir = "Framework"
 
 -----------------------------------------------------------------------------
 -- VULKAN SDK -- CHANGE THIS IF YOUR INSTALL DIFFERS
@@ -155,6 +157,11 @@ local function defineLibrary(name, apiPrefix)
 			frameworkDir
 		}
 
+		-- Reference the shared Framework project (the header's home in the
+		-- solution). includedirs above still carries the path, so the #include
+		-- resolves either way.
+		links { "Framework" }
+
 		-- Precompile the large, force-included Framework.h via pch.h to cut
 		-- build time. pch.h is force-included (not Framework.h) so the library
 		-- sources compile unchanged -- no need to add #include "pch.h" to each .cpp.
@@ -165,6 +172,12 @@ local function defineLibrary(name, apiPrefix)
 		defines {
 			apiPrefix .. "_USE_DLL",			-- turn on the dll interface
 			apiPrefix .. "_LIBRARY_EXPORTS",	-- this project exports the symbols
+
+			-- FEATURE TIER: memory tracking only. No USE_THREAD_FRAMEWORK and
+			-- no USE_VULKAN_FRAMEWORK, so this project never parses volk / VMA
+			-- and needs no Vulkan SDK include path. See Framework.h.
+			"MEM_TRACKER_ENABLED",
+
 			'WINDOWS_TARGET_PLATFORM="$(TargetPlatformVersion)"',
 			'SOLUTION_DIR=R"($(SolutionDir))"',
 			'TOOLS_VERSION=R"($(VCToolsVersion))"',
@@ -229,7 +242,8 @@ local function defineUnitTest(name, apiPrefix, libName)
 			frameworkDir
 		}
 
-		links { libName }		-- consume the lib DLL under test
+		links { libName }			-- consume the lib DLL under test
+		links { "Framework" }		-- shared-items reference (see defineLibrary)
 
 		-- Precompile Framework.h (same rationale as the library helper above).
 		pchheader "pch.h"
@@ -239,6 +253,10 @@ local function defineUnitTest(name, apiPrefix, libName)
 		defines {
 			apiPrefix .. "_USE_DLL",	-- consume via dllimport
 			"_CONSOLE",
+
+			-- FEATURE TIER: memory tracking only (same as the lib under test).
+			"MEM_TRACKER_ENABLED",
+
 			'WINDOWS_TARGET_PLATFORM="$(TargetPlatformVersion)"',
 			'SOLUTION_DIR=R"($(SolutionDir))"',
 			'TOOLS_VERSION=R"($(VCToolsVersion))"',
@@ -256,6 +274,29 @@ local function defineUnitTest(name, apiPrefix, libName)
 			defines { "NDEBUG" }
 		filter {}
 end
+
+--=============================================================================
+-- Framework -- a Visual Studio SHARED ITEMS project (.vcxitems).
+--
+-- Framework.h is header-only and force-included by every project, but the
+-- projects are NOT all in the same tier (see FEATURE TIERS at the top of
+-- Framework.h). A shared-items project is the right shape for exactly that: it
+-- gives the header one home in the solution, and each consumer compiles it
+-- under its OWN preprocessor defines. So the libs get memory tracking only,
+-- while the app additionally gets the thread + Vulkan frameworks -- from the
+-- same file, with no #define buried inside it.
+--
+-- It is Framework.h and nothing else -- there is no implementation .cpp. The
+-- volk + VMA bodies live at the end of Framework.h behind
+-- VULKAN_FRAMEWORK_IMPLEMENTATION, and main.cpp is the single TU that includes
+-- the header a second time to compile them.
+--=============================================================================
+project "Framework"
+	kind     "SharedItems"
+	language "C++"
+	location (frameworkDir)
+
+	files { frameworkDir .. "/**.h" }
 
 --=============================================================================
 -- Main application: Vulkan_Baseline (console app). Links the three DLL libs.
@@ -290,31 +331,43 @@ project "Vulkan_Baseline"
 		"Vulkan_Baseline/**.cpp"
 	}
 
+	-- No implementation .cpp is added from Framework/: the volk + VMA bodies live
+	-- in Framework.h behind VULKAN_FRAMEWORK_IMPLEMENTATION, and main.cpp is the
+	-- single TU that includes the header a second time to compile them.
+
 	-- Every folder under Vulkan_Baseline/, discovered at generate time, so
-	-- Framework / Source / Window / Vulkan and any subfolder they grow are all
-	-- on the include path. Re-run premake after adding a folder.
+	-- Engine / Game / Shader / ThreadManagement / Vulkan and any subfolder they
+	-- grow are all on the include path. Re-run premake after adding a folder.
+	-- (Framework/ is no longer in this tree -- it is added explicitly below.)
 	includedirs (includeTree("Vulkan_Baseline"))
 
 	-- External include paths (not part of this project's source tree).
 	-- includedirs is additive, so these append to the tree above.
 	includedirs {
+		frameworkDir,					-- Framework.h (force-included below)
 		"Libs/Math/include",
 		"Libs/File/include",
 		"Libs/AnimTime/include",
+		"Libs/Manager/include",			-- ManBase / DLink / CompareStrategyBase
 		vulkanSDK .. "/Include"			-- <vulkan/vulkan.h>
 	}
 
 	-- Link the source-built libraries. DLL linking is NOT transitive: any module
 	-- that directly calls into a DLL needs that DLL's own import lib, so each lib
 	-- the app uses must be listed here (and its *_USE_DLL define set below).
-	links { "Math", "File", "AnimTime" }
+	links { "Math", "File", "AnimTime", "Manager" }
 
-	-- volk + VMA implementations (static lib). We no longer link vulkan-1.lib:
-	-- volk loads vulkan-1.dll itself at runtime (volkInitialize), so the import
-	-- library is not needed -- only the SDK include path (added above) for the
-	-- headers. vkCreateInstance and friends resolve to volk's function pointers,
-	-- which this static lib defines.
-	links { "ThirdParty" }
+	-- The shared Framework project (headers). This is the only project in the
+	-- Vulkan tier -- see the defines block below.
+	links { "Framework" }
+
+	-- volk + VMA are compiled straight into the app -- no separate static lib and
+	-- no implementation .cpp: their bodies live in Framework.h, and main.cpp is
+	-- the one TU that pulls them in (VULKAN_FRAMEWORK_IMPLEMENTATION). We do not
+	-- link vulkan-1.lib either: volk loads vulkan-1.dll itself at runtime
+	-- (volkInitialize), so only the SDK include path (added above) is needed for
+	-- the headers. vkCreateInstance and friends resolve to volk's function
+	-- pointers, which that implementation block defines.
 
 	-- DXC (DirectX Shader Compiler) -- compiles HLSL to SPIR-V at RUNTIME, for
 	-- hot-reloadable shaders. This one IS a normal import lib (unlike volk), so
@@ -358,7 +411,17 @@ project "Vulkan_Baseline"
 		"MATH_USE_DLL",			-- consume Math via dllimport
 		"FILE_USE_DLL",			-- consume File via dllimport
 		"ANIM_TIME_USE_DLL",	-- consume AnimTime via dllimport
+		"MANAGER_USE_DLL",		-- consume Manager via dllimport
 		"_WINDOWS",				-- matches kind "WindowedApp" above
+
+		-- FEATURE TIER: the app is the only project in the VULKAN tier, which
+		-- is the top one and needs all three (Framework.h enforces that with an
+		-- #error). USE_VULKAN_FRAMEWORK is what makes Framework.h include volk +
+		-- VMA and expose VK_Try / Validation:: / vk::VulkanAllocator -- so it
+		-- must be paired with the SDK include path added above.
+		"MEM_TRACKER_ENABLED",
+		"USE_THREAD_FRAMEWORK",
+		"USE_VULKAN_FRAMEWORK",
 
 		-- Turns on the Win32 half of <vulkan/vulkan.h>: VkWin32SurfaceCreateInfoKHR
 		-- and vkCreateWin32SurfaceKHR. Without this, VulkanSurface will not compile.
@@ -411,6 +474,11 @@ group "Libs"
 	defineLibrary("Math", "MATH")
 	defineLibrary("File", "FILE")
 	defineLibrary("AnimTime", "ANIM_TIME")
+	-- Doubly-linked list + manager pattern + CompareStrategy. Pure container
+	-- code (Azul::), no Vulkan -- so it sits in the memory-tracking tier with
+	-- the other libs. The Camera classes in the app derive from its ManBase /
+	-- DLink / CompareStrategyBase.
+	defineLibrary("Manager", "MANAGER")
 group ""
 
 group "Tests"
@@ -418,46 +486,3 @@ group "Tests"
 	defineUnitTest("FileTest", "FILE", "File")
 group ""
 
---=============================================================================
--- ThirdParty: compiles the volk + VMA header-only implementations into a
--- static lib. Kept SEPARATE from the app so it does NOT force-include
--- Framework.h -- whose Debug #define new / #define malloc macros would corrupt
--- VMA's C++ implementation. The app links this and only ever includes the
--- volk / VMA *declarations* (from the SDK include path).
---=============================================================================
-group "Vendor"
-	project "ThirdParty"
-		location   "ThirdParty"
-		language   "C++"
-		kind       "StaticLib"
-		cppdialect "C++17"
-		staticruntime "Off"			-- /MD(d): must match the app's runtime
-		characterset "MBCS"
-		toolset    "v143"
-
-		targetdir (outputBin)
-		objdir    (outputObj)
-
-		files { "ThirdParty/vk_impl.cpp" }
-
-		includedirs { vulkanSDK .. "/Include" }		-- <Volk/volk.h>, <vma/vk_mem_alloc.h>
-
-		-- No forceincludes, no pch on purpose (see the note above).
-		defines {
-			"VK_NO_PROTOTYPES",				-- volk provides vk* as function pointers
-			"VK_USE_PLATFORM_WIN32_KHR",	-- so volk defines vkCreateWin32SurfaceKHR
-			"NOMINMAX",						-- windows.h min/max would break VMA
-			"WIN32_LEAN_AND_MEAN"
-		}
-
-		filter "configurations:Debug"
-			runtime "Debug"
-			symbols "On"
-			defines { "_DEBUG" }
-
-		filter "configurations:Release"
-			runtime "Release"
-			optimize "On"
-			defines { "NDEBUG" }
-		filter {}
-group ""

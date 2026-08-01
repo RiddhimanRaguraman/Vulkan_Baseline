@@ -5,7 +5,7 @@
 #ifndef LOGICAL_DEVICE_H
 #define LOGICAL_DEVICE_H
 
-#include "VulkanUtilities.h"
+// Vulkan types come from the force-included Framework.h (VULKAN FRAMEWORK section).
 
 //---------------------------------------------------------------------------
 // class LogicalDevice

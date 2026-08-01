@@ -5,8 +5,7 @@
 #ifndef SWAPCHAIN_H
 #define SWAPCHAIN_H
 
-#include "VulkanUtilities.h"		// volk first -> defines VOLK_HEADER_VERSION
-#include <vma/vk_mem_alloc.h>		// VmaAllocator / VmaAllocation (depth image)
+// Vulkan + VMA types come from the force-included Framework.h (VULKAN FRAMEWORK section).
 
 //---------------------------------------------------------------------------
 // class Swapchain

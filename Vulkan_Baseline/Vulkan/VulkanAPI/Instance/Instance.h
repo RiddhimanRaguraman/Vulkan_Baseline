@@ -5,7 +5,7 @@
 #ifndef INSTANCE_H
 #define INSTANCE_H
 
-#include "VulkanUtilities.h"
+// Vulkan types come from the force-included Framework.h (VULKAN FRAMEWORK section).
 
 //---------------------------------------------------------------------------
 // class Instance
@@ -59,7 +59,7 @@ namespace Neelam::vk
 		VkInstance               privInstance;
 
 		// Owns the validation messenger's lifetime (Debug only; the boilerplate
-		// to build it lives in VulkanUtilities.h -> Validation::).
+		// to build it lives in Framework.h -> Validation::).
 		VkDebugUtilsMessengerEXT privDebugMessenger;
 	};
 }

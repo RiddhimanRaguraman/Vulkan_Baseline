@@ -17,7 +17,6 @@ namespace Neelam
 		  physicalDevice(),
 		  queueFamily(),
 		  logicalDevice(),
-		  allocator(),
 		  swapchain(),
 		  graphicsPipeline(),
 		  privFrameTimer(),
@@ -65,10 +64,12 @@ namespace Neelam
 		this->logicalDevice.Create(this->physicalDevice.GetPhysicalDevice());
 
 		// VMA memory allocator -- built from instance + GPU + device. Must come
-		// after the device (volk's device pointers are loaded by now).
-		this->allocator.Create(this->instance.GetInstance(),
-							   this->physicalDevice.GetPhysicalDevice(),
-							   this->logicalDevice.GetDevice());
+		// after the device (volk's device pointers are loaded by now). It is a
+		// framework singleton, so there is no member to own: the Engine only
+		// decides WHEN it is built and torn down.
+		vk::VulkanAllocator::Create(this->instance.GetInstance(),
+									this->physicalDevice.GetPhysicalDevice(),
+									this->logicalDevice.GetDevice());
 
 		// Swapchain: the images we render into and present. Depth buffer is
 		// allocated through VMA, so this comes after the allocator. 1280x720 is
@@ -76,7 +77,7 @@ namespace Neelam
 		this->swapchain.Create(this->physicalDevice.GetPhysicalDevice(),
 							   this->logicalDevice.GetDevice(),
 							   this->surface.GetSurface(),
-							   this->allocator.GetAllocator(),
+							   vk::VulkanAllocator::Get(),
 							   1280, 720);
 
 		// The frame loop: command buffers + sync, drawing into the swapchain.
@@ -148,7 +149,7 @@ namespace Neelam
 		this->swapchain.Create(this->physicalDevice.GetPhysicalDevice(),
 							   this->logicalDevice.GetDevice(),
 							   this->surface.GetSurface(),
-							   this->allocator.GetAllocator(),
+							   vk::VulkanAllocator::Get(),
 							   width, height);
 	}
 
@@ -198,7 +199,7 @@ namespace Neelam
 		this->swapchain.Destroy();
 
 		// The allocator lives on the device, so it must go before the device.
-		this->allocator.Destroy();
+		vk::VulkanAllocator::Destroy();
 
 		// The logical device owns real GPU state, so it must go before the
 		// things it was built from.
