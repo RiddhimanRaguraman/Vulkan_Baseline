@@ -9,13 +9,13 @@
 #include "DLinkMan.h"
 #include "CameraNodeCompareStrategyEnumName.h"
 
-namespace Azul 
+namespace Neelam 
 {
     CameraNodeMan* CameraNodeMan::posInstance = nullptr;
-	CompareStrategyBase *CameraNodeMan::posEnumNameCompare = nullptr;
+	Azul::CompareStrategyBase *CameraNodeMan::posEnumNameCompare = nullptr;
 
     CameraNodeMan::CameraNodeMan(int reserveNum, int reserveGrow)
-        : ManBase(new DLinkMan(), new DLinkMan(), reserveNum, reserveGrow),
+        : Azul::ManBase(new Azul::DLinkMan(), new Azul::DLinkMan(), reserveNum, reserveGrow),
         poNodeCompare(nullptr),
         pCamOrthographic(nullptr),
         pCamPerspective(nullptr),
@@ -37,9 +37,9 @@ namespace Azul
         delete this->poNodeCompare;
         this->poNodeCompare = nullptr;
 
-        Iterator* pIt = this->baseGetActiveIterator();
+        Azul::Iterator* pIt = this->baseGetActiveIterator();
 
-        DLink* pNode = pIt->First();
+        Azul::DLink* pNode = pIt->First();
 
         // Walk through the nodes
         while (!pIt->IsDone())
@@ -145,9 +145,9 @@ namespace Azul
     {
         CameraNodeMan* pMan = CameraNodeMan::privGetInstance();
         pMan->ProcessInput();
-        Iterator* pIt = pMan->baseGetActiveIterator();
+        Azul::Iterator* pIt = pMan->baseGetActiveIterator();
 
-        for (DLink* pNode = pIt->First(); !pIt->IsDone(); pNode = pIt->Next())
+        for (Azul::DLink* pNode = pIt->First(); !pIt->IsDone(); pNode = pIt->Next())
         {
             CameraNode* pCamNode = static_cast<CameraNode*>(pNode);
             Camera* pCam = pCamNode->GetCamera();
@@ -225,7 +225,7 @@ namespace Azul
         return pCam;
     }
 
-    DLink* CameraNodeMan::derivedCreateNode()
+    Azul::DLink* CameraNodeMan::derivedCreateNode()
     {
         return new CameraNode();
     }
@@ -239,8 +239,8 @@ namespace Azul
             return;
 
         // get its helper data
-        Vec3  up, tar, pos;
-        Vec3  upNorm, forwardNorm, rightNorm;
+        Azul::Vec3  up, tar, pos;
+        Azul::Vec3  upNorm, forwardNorm, rightNorm;
         pCam->GetHelper(up, tar, pos, upNorm, forwardNorm, rightNorm);
 
         const float _moveSpeed = this->moveSpeed;
@@ -271,13 +271,13 @@ namespace Azul
                 if (abs(deltaX) > 0)
                 {
                     float yawDelta = deltaX * mouseSensitivity;
-                    Trans  T1(tar);
-                    Trans  T2(-tar);
-                    Rot    R;  R.set(Axis::AxisAngle, upNorm, -yawDelta);
-                    Mat4   M = T2 * R * T1;
-                    pos = Vec4(pos, 1.0f) * M;
-                    tar = Vec4(tar, 1.0f) * M;
-                    up  = Vec4(up, 1.0f) * M;
+                    Azul::Trans  T1(tar);
+                    Azul::Trans  T2(-tar);
+                    Azul::Rot    R;  R.set(Azul::Axis::AxisAngle, upNorm, -yawDelta);
+                    Azul::Mat4   M = T2 * R * T1;
+                    pos = Azul::Vec4(pos, 1.0f) * M;
+                    tar = Azul::Vec4(tar, 1.0f) * M;
+                    up  = Azul::Vec4(up, 1.0f) * M;
                     moved = true;
                 }
                 lastLeft = cur;
@@ -302,13 +302,13 @@ namespace Azul
                 if (abs(deltaX) > 0)
                 {
                     float rollDelta = deltaX * mouseSensitivity;
-                    Trans  T1(tar);
-                    Trans  T2(-tar);
-                    Rot    R;  R.set(Axis::AxisAngle, forwardNorm, -rollDelta);
-                    Mat4   M = T2 * R * T1;
-                    pos = Vec4(pos, 1.0f) * M;
-                    tar = Vec4(tar, 1.0f) * M;
-                    up  = Vec4(up, 1.0f) * M;
+                    Azul::Trans  T1(tar);
+                    Azul::Trans  T2(-tar);
+                    Azul::Rot    R;  R.set(Azul::Axis::AxisAngle, forwardNorm, -rollDelta);
+                    Azul::Mat4   M = T2 * R * T1;
+                    pos = Azul::Vec4(pos, 1.0f) * M;
+                    tar = Azul::Vec4(tar, 1.0f) * M;
+                    up  = Azul::Vec4(up, 1.0f) * M;
                     moved = true;
                 }
                 lastRight = cur;
@@ -333,13 +333,13 @@ namespace Azul
                 if (abs(deltaY) > 0)
                 {
                     float pitchDelta = deltaY * mouseSensitivity;
-                    Trans  T1(tar);
-                    Trans  T2(-tar);
-                    Rot    R;  R.set(Axis::AxisAngle, rightNorm, pitchDelta);
-                    Mat4   M = T2 * R * T1;
-                    pos = Vec4(pos, 1.0f) * M;
-                    tar = Vec4(tar, 1.0f) * M;
-                    up  = Vec4(up, 1.0f) * M;
+                    Azul::Trans  T1(tar);
+                    Azul::Trans  T2(-tar);
+                    Azul::Rot    R;  R.set(Azul::Axis::AxisAngle, rightNorm, pitchDelta);
+                    Azul::Mat4   M = T2 * R * T1;
+                    pos = Azul::Vec4(pos, 1.0f) * M;
+                    tar = Azul::Vec4(tar, 1.0f) * M;
+                    up  = Azul::Vec4(up, 1.0f) * M;
                     moved = true;
                 }
                 lastMiddle = cur;
@@ -353,7 +353,7 @@ namespace Azul
         // Keyboard input for camera translation (existing code)
         if (GetKeyState('W') & 0x8000)
         {
-            Vec3 delta = forwardNorm * _moveSpeed;
+            Azul::Vec3 delta = forwardNorm * _moveSpeed;
             pos = pos + delta;
             tar = tar + delta;
             up  = up  + delta;
@@ -362,7 +362,7 @@ namespace Azul
 
         if (GetKeyState('S') & 0x8000)
         {
-            Vec3 delta = forwardNorm * _moveSpeed;
+            Azul::Vec3 delta = forwardNorm * _moveSpeed;
             pos = pos - delta;
             tar = tar - delta;
             up  = up  - delta;
@@ -371,7 +371,7 @@ namespace Azul
 
         if (GetKeyState('A') & 0x8000)
         {
-            Vec3 delta = rightNorm * _moveSpeed;
+            Azul::Vec3 delta = rightNorm * _moveSpeed;
             pos = pos - delta;
             tar = tar - delta;
             up  = up  - delta;
@@ -380,7 +380,7 @@ namespace Azul
 
         if (GetKeyState('D') & 0x8000)
         {
-            Vec3 delta = rightNorm * _moveSpeed;
+            Azul::Vec3 delta = rightNorm * _moveSpeed;
             pos = pos + delta;
             tar = tar + delta;
             up  = up  + delta;
@@ -389,7 +389,7 @@ namespace Azul
 
         if (GetKeyState('E') & 0x8000)
         {
-            Vec3 delta = upNorm * _moveSpeed;
+            Azul::Vec3 delta = upNorm * _moveSpeed;
             pos = pos + delta;
             tar = tar + delta;
             up  = up  + delta;
@@ -398,7 +398,7 @@ namespace Azul
 
         if (GetKeyState('Q') & 0x8000)
         {
-            Vec3 delta = upNorm * _moveSpeed;
+            Azul::Vec3 delta = upNorm * _moveSpeed;
             pos = pos - delta;
             tar = tar - delta;
             up  = up  - delta;

@@ -9,10 +9,10 @@
 #include "DLink.h"
 #include "Camera.h"
 
-namespace Azul
+namespace Neelam
 {
 
-	class CameraNode : public DLink
+	class CameraNode : public Azul::DLink
 	{
 	public:
 		CameraNode();

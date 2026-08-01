@@ -4,11 +4,11 @@
 
 #include "CameraNode.h"
 
-namespace Azul
+namespace Neelam
 {
 
     CameraNode::CameraNode()
-        : DLink(),
+        : Azul::DLink(),
         poCamera(nullptr)
     {
         this->privClear();
@@ -81,7 +81,7 @@ namespace Azul
             Debug::out("      Name: %s \n", "null");
         }
 
-        DLink::Dump();
+        Azul::DLink::Dump();
     }
 
 }

@@ -8,6 +8,7 @@
 #include "Engine.h"
 #include "ShaderObject_ColorByVertex.h"
 #include "ShaderWatcher.h"
+#include "CameraNodeMan.h"
 
 //---------------------------------------------------------------------------
 // class Game
@@ -41,9 +42,19 @@ namespace Neelam
 		virtual void Render()                override;
 
 	private:
+		// Rebuild the cameras' viewport/aspect when the window size changes.
+		// CameraNodeMan owns the cameras themselves (singleton), so nothing here
+		// holds one -- GetCurrent() hands the active one back.
+		void privSyncCamerasToWindow();
+
 		// The triangle technique + the background watcher that hot-reloads it.
 		vk::ShaderObject_ColorByVertex triangleShader;
 		vk::ShaderWatcher              shaderWatcher;
+
+		// Last extent the cameras were sized against, so the sync above only
+		// runs on an actual resize instead of every frame.
+		uint32_t privCamWidth;
+		uint32_t privCamHeight;
 	};
 }
 

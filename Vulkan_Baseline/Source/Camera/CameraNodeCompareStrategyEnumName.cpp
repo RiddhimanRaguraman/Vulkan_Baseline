@@ -5,9 +5,9 @@
 #include "CameraNodeCompareStrategyEnumName.h"
 #include "CameraNode.h"
 
-namespace Azul
+namespace Neelam
 {
-	bool CameraNodeCompareStrategyEnumName::Compare(DLink *pRefNode, DLink *pTargetNode)
+	bool CameraNodeCompareStrategyEnumName::Compare(Azul::DLink *pRefNode, Azul::DLink *pTargetNode)
 	{
 		assert(pRefNode);
 		assert(pTargetNode);

@@ -216,6 +216,30 @@ namespace Neelam::vk
 	{
 		switch (msg)
 		{
+		case WM_KEYDOWN:
+			// ESC quits -- routed through WM_CLOSE so it takes the EXACT same
+			// path as the title-bar close button:
+			//     WM_CLOSE -> DestroyWindow -> WM_DESTROY -> PostQuitMessage
+			//   -> ProcessMessages() returns false -> Engine::Run -> Shutdown()
+			// That matters: quitting via PostQuitMessage directly (as the old
+			// Azul engine does from WM_CHAR) leaves the HWND alive and skips
+			// this window's own teardown, so the two exits would not match.
+			//
+			// Standalone only. Hosted as a child in the editor, ESC belongs to
+			// the host -- tearing the render surface out from under WPF is not
+			// ours to do, and WM_DESTROY below would refuse to quit anyway.
+			//
+			// WM_KEYDOWN rather than Azul's WM_CHAR: ESC only produces a WM_CHAR
+			// because its ASCII (27) happens to equal VK_ESCAPE, and that path
+			// needs TranslateMessage. WM_KEYDOWN says what it means.
+			if (wParam == VK_ESCAPE && !this->privIsChild)
+			{
+				Debug::out("Window: ESC -> quit\n");
+				PostMessage(hwnd, WM_CLOSE, 0, 0);
+				return 0;
+			}
+			break;		// every other key -> DefWindowProc
+
 		case WM_CLOSE:
 			DestroyWindow(hwnd);
 			return 0;

@@ -14,9 +14,9 @@
 // PORT: dropped #include "CameraUtility.h" -- that file was not part of the folder
 // you handed over, and nothing in CameraMan.{h,cpp} references it.
 
-namespace Azul
+namespace Neelam
 {
-	class CameraMan : public ManBase
+	class CameraMan : public Azul::ManBase
 	{
 		//----------------------------------------------------------------------
 		// Static Methods
@@ -56,7 +56,7 @@ namespace Azul
 		// Override Abstract methods
 		//----------------------------------------------------------------------
 	protected:
-		DLink *derivedCreateNode() override;
+		Azul::DLink *derivedCreateNode() override;
 
 
 
@@ -66,7 +66,7 @@ namespace Azul
 	private:
 		CameraNode *poNodeCompare;
 		static CameraMan *posInstance;
-		static CompareStrategyBase *posEnumNameCompare;
+		static Azul::CompareStrategyBase *posEnumNameCompare;
 
 		// w1(7)
 		//Camera *currCamera;		

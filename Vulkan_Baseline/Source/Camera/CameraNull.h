@@ -8,7 +8,7 @@
 
 #include "Camera.h"
 
-namespace Azul
+namespace Neelam
 {
 
 	class CameraNull : public Camera

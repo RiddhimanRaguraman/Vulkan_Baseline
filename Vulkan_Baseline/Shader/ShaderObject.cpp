@@ -58,6 +58,12 @@ namespace Neelam::vk
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->privPipeline);
 	}
 
+	void ShaderObject::SetMatrices(VkCommandBuffer cmd, const ShaderMatrices &matrices) const
+	{
+		vkCmdPushConstants(cmd, this->privLayout, VK_SHADER_STAGE_VERTEX_BIT,
+			0, (uint32_t)sizeof(ShaderMatrices), &matrices);
+	}
+
 	void ShaderObject::Destroy()
 	{
 		if (this->privPipeline != VK_NULL_HANDLE)
@@ -76,12 +82,28 @@ namespace Neelam::vk
 	}
 
 	//-----------------------------------------------------------------
-	// Empty layout: no descriptor sets, no push constants (yet).
+	// No descriptor sets yet -- but one PUSH CONSTANT range for the camera's
+	// view + proj matrices (ShaderMatrices, 128 bytes, vertex stage only).
+	//
+	// The range must be declared here because the layout is what the shader's
+	// push-constant block is validated against; a mismatch between this and the
+	// HLSL block is a validation error, not a silent wrong result.
+	//
+	// Built once in Create() and NOT rebuilt by Reload(), so the layout survives
+	// shader hot-reload -- which is what lets an edited .hlsl keep the same
+	// push-constant contract.
 	//-----------------------------------------------------------------
 	void ShaderObject::privBuildLayout()
 	{
+		VkPushConstantRange matrixRange = {};
+		matrixRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		matrixRange.offset     = 0;
+		matrixRange.size       = (uint32_t)sizeof(ShaderMatrices);
+
 		VkPipelineLayoutCreateInfo info = {};
-		info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		info.pushConstantRangeCount = 1;
+		info.pPushConstantRanges    = &matrixRange;
 
 		VK_Try(vkCreatePipelineLayout(this->privDevice, &info, nullptr, &this->privLayout));
 	}

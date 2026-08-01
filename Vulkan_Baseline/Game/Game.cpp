@@ -9,7 +9,9 @@ namespace Neelam
 	Game::Game()
 		: Engine(),
 		  triangleShader(),
-		  shaderWatcher()
+		  shaderWatcher(),
+		  privCamWidth(0),
+		  privCamHeight(0)
 	{
 	}
 
@@ -35,6 +37,82 @@ namespace Neelam
 		// Start the background watcher on the shader folder. From here on,
 		// saving a .hlsl posts a message that Update() picks up (see below).
 		this->shaderWatcher.Start(SOLUTION_DIR "Vulkan_Baseline\\Shader\\hlsl");
+
+		// ---- cameras -------------------------------------------------------
+		// CameraNodeMan is a singleton manager over the Manager DLL's DLink list:
+		// it owns every Camera, finds them by Camera::Name, and drives their
+		// per-frame update + input. Reserve 2 so Add() never allocates at
+		// runtime (the reserve pool grows by 1 if it ever needs to).
+		CameraNodeMan::Create(2, 1);
+
+		const VkExtent2D extent = this->swapchain.GetExtent();
+		const float aspect = (float)extent.width / (float)extent.height;
+
+		// 3D perspective camera. Right-handed: setOrientAndPosition flips vDir,
+		// so the camera looks from +Z back toward the origin.
+		Camera *pCam3D = new Camera(Camera::Type::PERSPECTIVE_3D);
+		pCam3D->setViewport(0, 0, (int)extent.width, (int)extent.height);
+		pCam3D->setPerspective(35.0f, aspect, 1.0f, 1000.0f);
+		pCam3D->setOrientAndPosition(Azul::Vec3(0.0f, 1.0f, 0.0f),		// up
+									 Azul::Vec3(0.0f, 0.0f, 0.0f),		// look at
+									 Azul::Vec3(0.0f, 0.0f, 5.0f));		// position
+		pCam3D->updateCamera();
+
+		CameraNodeMan::Add(Camera::Name::CAMERA_0, pCam3D);
+		CameraNodeMan::SetCurrent(Camera::Name::CAMERA_0, Camera::Type::PERSPECTIVE_3D);
+
+		// 2D orthographic camera, in pixel units, for later sprite/UI work.
+		Camera *pCam2D = new Camera(Camera::Type::ORTHOGRAPHIC_2D);
+		pCam2D->setViewport(0, 0, (int)extent.width, (int)extent.height);
+		pCam2D->setOrthographic(0.0f, (float)extent.width,
+								0.0f, (float)extent.height,
+								1.0f, 1000.0f);
+		pCam2D->setOrientAndPosition(Azul::Vec3(0.0f, 1.0f, 0.0f),
+									 Azul::Vec3(0.0f, 0.0f, 0.0f),
+									 Azul::Vec3(0.0f, 0.0f, 5.0f));
+		pCam2D->updateCamera();
+
+		CameraNodeMan::Add(Camera::Name::CAMERA_1, pCam2D);
+		CameraNodeMan::SetCurrent(Camera::Name::CAMERA_1, Camera::Type::ORTHOGRAPHIC_2D);
+
+		this->privCamWidth  = extent.width;
+		this->privCamHeight = extent.height;
+
+		Debug::out("Game: cameras created (3D + 2D, %ux%u)\n", extent.width, extent.height);
+	}
+
+	//-----------------------------------------------------------------
+	// Match the cameras to the window. Only fires when the swapchain extent
+	// actually changed (resize), because setPerspective() would otherwise
+	// rewrite fovy every frame and stomp the Z/C zoom in ProcessInput -- hence
+	// setAspectRatio(), which touches the aspect alone.
+	//-----------------------------------------------------------------
+	void Game::privSyncCamerasToWindow()
+	{
+		const VkExtent2D extent = this->swapchain.GetExtent();
+
+		// Minimized: a 0-size extent would divide by zero in the aspect below.
+		if (extent.width == 0 || extent.height == 0)
+		{
+			return;
+		}
+		if (extent.width == this->privCamWidth && extent.height == this->privCamHeight)
+		{
+			return;
+		}
+
+		Camera *pCam3D = CameraNodeMan::GetCurrent(Camera::Type::PERSPECTIVE_3D);
+		pCam3D->setViewport(0, 0, (int)extent.width, (int)extent.height);
+		pCam3D->setAspectRatio((float)extent.width / (float)extent.height);
+
+		Camera *pCam2D = CameraNodeMan::GetCurrent(Camera::Type::ORTHOGRAPHIC_2D);
+		pCam2D->setViewport(0, 0, (int)extent.width, (int)extent.height);
+		pCam2D->setOrthographic(0.0f, (float)extent.width,
+								0.0f, (float)extent.height,
+								1.0f, 1000.0f);
+
+		this->privCamWidth  = extent.width;
+		this->privCamHeight = extent.height;
 	}
 
 	//-----------------------------------------------------------------
@@ -48,6 +126,10 @@ namespace Neelam
 		// Stop the watcher thread before tearing the shader down.
 		this->shaderWatcher.Stop();
 		this->triangleShader.Destroy();
+
+		// Deletes every Camera it owns (the CameraNodes delete their Camera in
+		// privClear), plus the reserve pool and the compare strategy.
+		CameraNodeMan::Destroy();
 	}
 
 	//-----------------------------------------------------------------
@@ -65,6 +147,14 @@ namespace Neelam
 		{
 			this->triangleShader.Reload();
 		}
+
+		// Resize first, so Update() below recomputes the frustum + matrices
+		// against the new aspect in the same frame.
+		this->privSyncCamerasToWindow();
+
+		// Walks every camera: ProcessInput (WASD/QE move, mouse drag to orbit,
+		// Z/C zoom) then updateCamera() to rebuild view + projection.
+		CameraNodeMan::Update();
 	}
 
 	//-----------------------------------------------------------------
@@ -75,7 +165,15 @@ namespace Neelam
 	//-----------------------------------------------------------------
 	void Game::Render()
 	{
-		this->graphicsPipeline.Render(this->triangleShader);
+		// The active 3D camera supplies viewport + scissor for the frame.
+		//
+		// NOTE: its view/proj matrices are NOT consumed yet -- the triangle is
+		// still built from SV_VertexID in the vertex shader with no transform, so
+		// there is nothing to multiply them into. Feeding getViewMatrix() /
+		// getProjMatrix() to the shader needs a push constant or UBO + a pipeline
+		// layout, which lands with the vertex/index buffer work (§15).
+		this->graphicsPipeline.Render(this->triangleShader,
+									  CameraNodeMan::GetCurrent(Camera::Type::PERSPECTIVE_3D));
 	}
 }
 

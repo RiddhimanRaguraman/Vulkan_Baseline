@@ -11,10 +11,10 @@
 
 // PORT: EngineDLLInterface.h / AZUL_ENGINE_LIBRARY_API dropped -- app source, not a DLL export.
 
-namespace Azul
+namespace Neelam
 {
 
-	class CameraNodeMan : public ManBase
+	class CameraNodeMan : public Azul::ManBase
 	{
 	public:
 		// public interface --------------------------------------------------
@@ -45,12 +45,12 @@ namespace Azul
 		void ProcessInput();
 
 		// ManBase override --------------------------------------------------
-		virtual DLink* derivedCreateNode() override;
+		virtual Azul::DLink* derivedCreateNode() override;
 
 	private:
 		CameraNode* poNodeCompare;
 		static CameraNodeMan* posInstance;
-		static CompareStrategyBase *posEnumNameCompare;
+		static Azul::CompareStrategyBase *posEnumNameCompare;
 
 		Camera* pCamOrthographic;
 		Camera* pCamPerspective;

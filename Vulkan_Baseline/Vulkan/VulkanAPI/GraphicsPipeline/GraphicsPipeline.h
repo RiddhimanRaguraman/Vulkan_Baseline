@@ -9,6 +9,7 @@
 #include "Swapchain.h"
 #include "ShaderObject.h"
 #include "Color.h"
+#include "Camera.h"
 
 //---------------------------------------------------------------------------
 // class GraphicsPipeline
@@ -50,8 +51,16 @@ namespace Neelam::vk
 		// One frame. Draws `shader`'s pipeline (3 verts). If the swapchain went
 		// out of date, sets the stale flag (the Engine recreates it next frame)
 		// -- see IsSwapchainStale / ClearSwapchainStale.
+		//
+		// pCamera supplies the viewport + scissor (Camera::SetActive) AND the
+		// view/proj matrices pushed to the vertex stage. Pass nullptr to fall
+		// back to a full-swapchain viewport with identity matrices -- what the
+		// loop did before there was a camera.
+		//
+		// Non-const because Camera::getViewMatrix()/getProjMatrix() are non-const
+		// accessors in the ported DX11 camera.
 		//-----------------------------------------------------------------
-		void Render(const ShaderObject &shader);
+		void Render(const ShaderObject &shader, Camera *pCamera = nullptr);
 
 		bool IsSwapchainStale() const;
 		void ClearSwapchainStale();

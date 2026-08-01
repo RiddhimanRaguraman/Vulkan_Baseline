@@ -4,14 +4,7 @@
 
 #include "Camera.h"
 
-// PORT: dropped two DX11-only includes.
-//   StateDirectXMan.h -- the D3D11 device/immediate-context singleton. Vulkan has
-//     no immediate context; viewport state is recorded per frame (see SetActive).
-//   StringThis.h      -- that header pulled in Mesh / TextureObject / AnimMan /
-//     JointTable / HierarchyTable from the old engine, none of which exist here.
-//     GetName() now does its own Camera::Name switch instead.
-
-namespace Azul
+namespace Neelam
 {
 
 	Camera::~Camera()
@@ -19,8 +12,8 @@ namespace Azul
 
 	}
 
-	void Camera::GetHelper(Vec3 &up, Vec3 &tar, Vec3 &pos,
-						   Vec3 &upNorm, Vec3 &forwardNorm, Vec3 &pRightNorm)
+	void Camera::GetHelper(Azul::Vec3 &up, Azul::Vec3 &tar, Azul::Vec3 &pos,
+						   Azul::Vec3 &upNorm, Azul::Vec3 &forwardNorm, Azul::Vec3 &pRightNorm)
 	{
 		this->getPos(pos);
 		this->getLookAt(tar);
@@ -33,9 +26,9 @@ namespace Azul
 		this->getRight(pRightNorm);
 	}
 
-	void Camera::SetHelper(Vec3 &up_pt, Vec3 &tar_pt, Vec3 &pos_pt)
+	void Camera::SetHelper(Azul::Vec3 &up_pt, Azul::Vec3 &tar_pt, Azul::Vec3 &pos_pt)
 	{
-		Vec3 upVect = up_pt - pos_pt;
+		Azul::Vec3 upVect = up_pt - pos_pt;
 		this->setOrientAndPosition(upVect, tar_pt, pos_pt);
 	}
 
@@ -53,9 +46,6 @@ namespace Azul
 		return this->camType;
 	}
 
-	// PORT: was strcpy_s(pTmp, 128, StringMe(this->name)) via StringThis.h. That
-	// header dragged in half the old DX11 engine for one enum-to-text switch, so
-	// the switch lives here now. Same contract: returns a static buffer.
 	char *Camera::GetName() const
 	{
 		static char pTmp[128];
@@ -85,7 +75,7 @@ namespace Azul
 	void Camera::setPerspective(const float Fovy, const float Aspect, const float NearDist, const float FarDist)
 	{
 		this->aspectRatio = Aspect;
-		this->fovy = MATH_PI_180 * Fovy;
+		this->fovy = Azul::MATH_PI_180 * Fovy;
 		this->nearDist = NearDist;
 		this->farDist = FarDist;
 	}
@@ -179,7 +169,7 @@ namespace Azul
 		this->far_width = this->far_height * this->aspectRatio;
 	};
 
-	void Camera::setOrientAndPosition(const Vec3 &inUp, const Vec3 &inLookAt, const Vec3 &inPos)
+	void Camera::setOrientAndPosition(const Azul::Vec3 &inUp, const Azul::Vec3 &inLookAt, const Azul::Vec3 &inPos)
 	{
 		// Remember the up, lookAt and right are unit length, and are perpendicular.
 		// Treat lookAt as king, find Right vect, then correct Up to insure perpendiculare.
@@ -217,9 +207,9 @@ namespace Azul
 	void Camera::privCalcFrustumCollisionNormals(void)
 	{
 		// Normals of the frustum around nearTopLeft
-		Vec3 A = this->nearBottomLeft - this->nearTopLeft;
-		Vec3 B = this->nearTopRight - this->nearTopLeft;
-		Vec3 C = this->farTopLeft - this->nearTopLeft;
+		Azul::Vec3 A = this->nearBottomLeft - this->nearTopLeft;
+		Azul::Vec3 B = this->nearTopRight - this->nearTopLeft;
+		Azul::Vec3 C = this->farTopLeft - this->nearTopLeft;
 
 		this->frontNorm = A.cross(B);
 		this->frontNorm.norm();
@@ -248,14 +238,15 @@ namespace Azul
 	// The projection matrix (note it's invertable)
 	void Camera::privUpdateProjectionMatrix(void)
 	{
+		using namespace Azul;
 		if (this->camType == Camera::Type::PERSPECTIVE_3D)
 		{
 			float d = 1.0f / tanf(fovy / 2.0f);
 
-			this->projMatrix[m0] = d / aspectRatio;
-			this->projMatrix[m1] = 0.0f;
-			this->projMatrix[m2] = 0.0f;
-			this->projMatrix[m3] = 0.0f;
+			this->projMatrix[Azul::m0] = d / aspectRatio;
+			this->projMatrix[Azul::m1] = 0.0f;
+			this->projMatrix[Azul::m2] = 0.0f;
+			this->projMatrix[Azul::m3] = 0.0f;
 
 			this->projMatrix[m4] = 0.0f;
 			// PORT: NEGATED for Vulkan. Vulkan's NDC has +Y pointing DOWN; D3D
@@ -285,8 +276,8 @@ namespace Azul
 			// must change and does not -- Vulkan's clip-space Z is [0,1], the same
 			// as D3D (it is OpenGL that is the odd one out at [-1,1]). Deleting it
 			// would put half the depth range behind the near plane.
-			Trans B(0.0f, 0.0f, 1.0f);
-			Scale S(1.0f, 1.0f, 0.5f);
+			Azul::Trans B(0.0f, 0.0f, 1.0f);
+			Azul::Scale S(1.0f, 1.0f, 0.5f);
 
 			projMatrix = projMatrix * B * S;
 		}
@@ -321,7 +312,7 @@ namespace Azul
 	{
 		// This functions assumes the your vUp, vRight, vDir are still unit
 		// And perpendicular to each other
-
+		using namespace Azul;
 		// Set for DX Right-handed space
 		this->viewMatrix[m0] = this->vRight[x];
 		this->viewMatrix[m1] = this->vUp[x];
@@ -365,37 +356,37 @@ namespace Azul
 	}
 
 	// Accessor mess:
-	Mat4 &Camera::getViewMatrix(void)
+	Azul::Mat4 &Camera::getViewMatrix(void)
 	{
 		return this->viewMatrix;
 	}
 
-	Mat4 &Camera::getProjMatrix(void)
+	Azul::Mat4 &Camera::getProjMatrix(void)
 	{
 		return this->projMatrix;
 	}
 
-	void Camera::getPos(Vec3 &outPos) const
+	void Camera::getPos(Azul::Vec3 &outPos) const
 	{
 		outPos = this->vPos;
 	}
 
-	void  Camera::getDir(Vec3 &outDir) const
+	void  Camera::getDir(Azul::Vec3 &outDir) const
 	{
 		outDir = this->vDir;
 	}
 
-	void  Camera::getUp(Vec3 &outUp) const
+	void  Camera::getUp(Azul::Vec3 &outUp) const
 	{
 		outUp = this->vUp;
 	}
 
-	void Camera::getLookAt(Vec3 &outLookAt) const
+	void Camera::getLookAt(Azul::Vec3 &outLookAt) const
 	{
 		outLookAt = this->vLookAt;
 	}
 
-	void Camera::getRight(Vec3 &outRight) const
+	void Camera::getRight(Azul::Vec3 &outRight) const
 	{
 		outRight = this->vRight;
 	}
@@ -410,6 +401,12 @@ namespace Azul
 		this->aspectRatio = Value;
 	}
 
+	// ADDED (not in the DX11 original) -- see the note in Camera.h.
+	void Camera::setAspectRatio(const float Value)
+	{
+		this->aspectRatio = Value;
+	}
+
 	void Camera::getNearDist(float &Value) const
 	{
 		Value = this->nearDist;
@@ -420,42 +417,42 @@ namespace Azul
 		this->nearDist = Value;
 	}
 
-	void Camera::getNearTopLeft(Vec3 &vOut) const
+	void Camera::getNearTopLeft(Azul::Vec3 &vOut) const
 	{
 		vOut = this->nearTopLeft;
 	}
 
-	void Camera::getNearTopRight(Vec3 &vOut) const
+	void Camera::getNearTopRight(Azul::Vec3 &vOut) const
 	{
 		vOut = this->nearTopRight;
 	}
 
-	void Camera::getNearBottomLeft(Vec3 &vOut)const
+	void Camera::getNearBottomLeft(Azul::Vec3 &vOut)const
 	{
 		vOut = this->nearBottomLeft;
 	}
 
-	void Camera::getNearBottomRight(Vec3 &vOut) const
+	void Camera::getNearBottomRight(Azul::Vec3 &vOut) const
 	{
 		vOut = this->nearBottomRight;
 	}
 
-	void Camera::getFarTopLeft(Vec3 &vOut) const
+	void Camera::getFarTopLeft(Azul::Vec3 &vOut) const
 	{
 		vOut = this->farTopLeft;
 	}
 
-	void Camera::getFarTopRight(Vec3 &vOut) const
+	void Camera::getFarTopRight(Azul::Vec3 &vOut) const
 	{
 		vOut = this->farTopRight;
 	}
 
-	void Camera::getFarBottomLeft(Vec3 &vOut) const
+	void Camera::getFarBottomLeft(Azul::Vec3 &vOut) const
 	{
 		vOut = this->farBottomLeft;
 	}
 
-	void Camera::getFarBottomRight(Vec3 &vOut)const
+	void Camera::getFarBottomRight(Azul::Vec3 &vOut)const
 	{
 		vOut = this->farBottomRight;
 	}

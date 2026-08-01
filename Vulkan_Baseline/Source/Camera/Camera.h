@@ -11,7 +11,7 @@
 // Framework.h -- see its VULKAN FRAMEWORK section.
 #include "MathEngine.h"
 
-namespace Azul
+namespace Neelam
 {
 
 	class Camera : public Align16
@@ -57,21 +57,21 @@ namespace Azul
 		// existing ShaderObject::SetActive(cmd) idiom.
 		void SetActive(VkCommandBuffer cmd) const;
 
-		void setOrientAndPosition(const Vec3 &Up_vect, const Vec3 &inLookAt_pt, const Vec3 &pos_pt);
+		void setOrientAndPosition(const Azul::Vec3 &Up_vect, const Azul::Vec3 &inLookAt_pt, const Azul::Vec3 &pos_pt);
 
 		// update camera system
 		void updateCamera(void);
 
 		// Get the matrices for rendering
-		Mat4 &getViewMatrix();
-		Mat4 &getProjMatrix();
+		Azul::Mat4 &getViewMatrix();
+		Azul::Mat4 &getProjMatrix();
 
 		// accessors
-		void getPos(Vec3 &outPos) const;
-		void getDir(Vec3 &outDir) const;
-		void getUp(Vec3 &outUp) const;
-		void getLookAt(Vec3 &outLookAt) const;
-		void getRight(Vec3 &outRight) const;
+		void getPos(Azul::Vec3 &outPos) const;
+		void getDir(Azul::Vec3 &outDir) const;
+		void getUp(Azul::Vec3 &outUp) const;
+		void getLookAt(Azul::Vec3 &outLookAt) const;
+		void getRight(Azul::Vec3 &outRight) const;
 
 		int getScreenWidth() const;
 		int getScreenHeight() const;
@@ -79,8 +79,16 @@ namespace Azul
 		// Why no SETS?  Pos,Dir,Up,LookAt, Right
 		//   They have to be adjust together in setOrientAndPosition()
 
+		// NOTE: these two are misnamed -- they get/set aspectRatio, NOT the field
+		// of view. Kept as-is so existing call sites behave the same; use
+		// setAspectRatio() below when you mean the aspect ratio.
 		void getFieldOfView(float &Value) const;
 		void setFieldOfView(const float Value);
+
+		// ADDED (not in the DX11 original): update the aspect ratio alone, for a
+		// window resize. setPerspective() would work but also rewrites fovy from
+		// degrees, which would stomp the Z/C zoom in CameraNodeMan::ProcessInput.
+		void setAspectRatio(const float Value);
 
 		void getNearDist(float &Value) const;
 		void setNearDist(const float Value);
@@ -93,17 +101,17 @@ namespace Azul
 		void SetName(Camera::Name name);
 
 		// helper functions
-		void GetHelper(Vec3 &up, Vec3 &tar, Vec3 &pos, Vec3 &upNorm, Vec3 &forwardNorm, Vec3 &rightNorm);
-		void SetHelper(Vec3 &up, Vec3 &tar, Vec3 &pos);
+		void GetHelper(Azul::Vec3 &up, Azul::Vec3 &tar, Azul::Vec3 &pos, Azul::Vec3 &upNorm, Azul::Vec3 &forwardNorm, Azul::Vec3 &rightNorm);
+		void SetHelper(Azul::Vec3 &up, Azul::Vec3 &tar, Azul::Vec3 &pos);
 
-		void getNearTopLeft(Vec3 &vOut) const;
-		void getNearTopRight(Vec3 &vOut) const;
-		void getNearBottomLeft(Vec3 &vOut) const;
-		void getNearBottomRight(Vec3 &vOut) const;
-		void getFarTopLeft(Vec3 &vOut) const;
-		void getFarTopRight(Vec3 &vOut) const;
-		void getFarBottomLeft(Vec3 &vOut) const;
-		void getFarBottomRight(Vec3 &vOut) const;
+		void getNearTopLeft(Azul::Vec3 &vOut) const;
+		void getNearTopRight(Azul::Vec3 &vOut) const;
+		void getNearBottomLeft(Azul::Vec3 &vOut) const;
+		void getNearBottomRight(Azul::Vec3 &vOut) const;
+		void getFarTopLeft(Azul::Vec3 &vOut) const;
+		void getFarTopRight(Azul::Vec3 &vOut) const;
+		void getFarBottomLeft(Azul::Vec3 &vOut) const;
+		void getFarBottomRight(Azul::Vec3 &vOut) const;
 		float GetFovY() const
 		{
 			return this->fovy;
@@ -130,38 +138,38 @@ namespace Azul
 		// -------------------------------------------------------
 
 		// Projection Matrix
-		Mat4	projMatrix;
-		Mat4	viewMatrix;
+		Azul::Mat4	projMatrix;
+		Azul::Mat4	viewMatrix;
 
 		// camera unit vectors (up, dir, right)
-		Vec3	vDir;
-		Vec3	vRight;  // derived by up and dir
+		Azul::Vec3	vDir;
+		Azul::Vec3	vRight;  // derived by up and dir
 
 
-		Vec3	vUp;      // Up vector
-		Vec3	vPos;     // pos pt
-		Vec3	vLookAt;  // target pt
+		Azul::Vec3	vUp;      // Up vector
+		Azul::Vec3	vPos;     // pos pt
+		Azul::Vec3	vLookAt;  // target pt
 
 		// world space coords for viewing frustum
-		Vec3	nearTopLeft;
-		Vec3	nearTopRight;
-		Vec3	nearBottomLeft;
+		Azul::Vec3	nearTopLeft;
+		Azul::Vec3	nearTopRight;
+		Azul::Vec3	nearBottomLeft;
 
-		Vec3	nearBottomRight;
-		Vec3	farTopLeft;
-		Vec3	farTopRight;
-		Vec3	farBottomLeft;
+		Azul::Vec3	nearBottomRight;
+		Azul::Vec3	farTopLeft;
+		Azul::Vec3	farTopRight;
+		Azul::Vec3	farBottomLeft;
 
-		Vec3	farBottomRight;
+		Azul::Vec3	farBottomRight;
 
 		// Normals of the frustum
-		Vec3	frontNorm;
-		Vec3	backNorm;
-		Vec3	rightNorm;
+		Azul::Vec3	frontNorm;
+		Azul::Vec3	backNorm;
+		Azul::Vec3	rightNorm;
 
-		Vec3	leftNorm;
-		Vec3	topNorm;
-		Vec3	bottomNorm;
+		Azul::Vec3	leftNorm;
+		Azul::Vec3	topNorm;
+		Azul::Vec3	bottomNorm;
 
 		// -------------------------------------------------------
 		// unaligned data below this point:
@@ -215,8 +223,8 @@ void CameraNodeMan::ProcessInput()
             return;
 
         // get its helper data
-        Vec3  up, tar, pos;
-        Vec3  upNorm, forwardNorm, rightNorm;
+        Azul::Vec3  up, tar, pos;
+        Azul::Vec3  upNorm, forwardNorm, rightNorm;
         pCam->GetHelper(up, tar, pos, upNorm, forwardNorm, rightNorm);
 
         const float moveSpeed = 0.1f;
@@ -247,13 +255,13 @@ void CameraNodeMan::ProcessInput()
                 if (abs(deltaX) > 0)
                 {
                     float yawDelta = deltaX * mouseSensitivity;
-                    Trans  T1(tar);
-                    Trans  T2(-tar);
-                    Rot    R;  R.set(Axis::AxisAngle, upNorm, -yawDelta);
-                    Mat4   M = T2 * R * T1;
-                    pos = Vec4(pos, 1.0f) * M;
-                    tar = Vec4(tar, 1.0f) * M;
-                    up  = Vec4(up, 1.0f) * M;
+                    Azul::Trans  T1(tar);
+                    Azul::Trans  T2(-tar);
+                    Azul::Rot    R;  R.set(Azul::Axis::AxisAngle, upNorm, -yawDelta);
+                    Azul::Mat4   M = T2 * R * T1;
+                    pos = Azul::Vec4(pos, 1.0f) * M;
+                    tar = Azul::Vec4(tar, 1.0f) * M;
+                    up  = Azul::Vec4(up, 1.0f) * M;
                     moved = true;
                 }
                 lastLeft = cur;
@@ -278,13 +286,13 @@ void CameraNodeMan::ProcessInput()
                 if (abs(deltaX) > 0)
                 {
                     float rollDelta = deltaX * mouseSensitivity;
-                    Trans  T1(tar);
-                    Trans  T2(-tar);
-                    Rot    R;  R.set(Axis::AxisAngle, forwardNorm, -rollDelta);
-                    Mat4   M = T2 * R * T1;
-                    pos = Vec4(pos, 1.0f) * M;
-                    tar = Vec4(tar, 1.0f) * M;
-                    up  = Vec4(up, 1.0f) * M;
+                    Azul::Trans  T1(tar);
+                    Azul::Trans  T2(-tar);
+                    Azul::Rot    R;  R.set(Azul::Axis::AxisAngle, forwardNorm, -rollDelta);
+                    Azul::Mat4   M = T2 * R * T1;
+                    pos = Azul::Vec4(pos, 1.0f) * M;
+                    tar = Azul::Vec4(tar, 1.0f) * M;
+                    up  = Azul::Vec4(up, 1.0f) * M;
                     moved = true;
                 }
                 lastRight = cur;
@@ -309,13 +317,13 @@ void CameraNodeMan::ProcessInput()
                 if (abs(deltaY) > 0)
                 {
                     float pitchDelta = deltaY * mouseSensitivity;
-                    Trans  T1(tar);
-                    Trans  T2(-tar);
-                    Rot    R;  R.set(Axis::AxisAngle, rightNorm, pitchDelta);
-                    Mat4   M = T2 * R * T1;
-                    pos = Vec4(pos, 1.0f) * M;
-                    tar = Vec4(tar, 1.0f) * M;
-                    up  = Vec4(up, 1.0f) * M;
+                    Azul::Trans  T1(tar);
+                    Azul::Trans  T2(-tar);
+                    Azul::Rot    R;  R.set(Azul::Axis::AxisAngle, rightNorm, pitchDelta);
+                    Azul::Mat4   M = T2 * R * T1;
+                    pos = Azul::Vec4(pos, 1.0f) * M;
+                    tar = Azul::Vec4(tar, 1.0f) * M;
+                    up  = Azul::Vec4(up, 1.0f) * M;
                     moved = true;
                 }
                 lastMiddle = cur;
@@ -329,7 +337,7 @@ void CameraNodeMan::ProcessInput()
         // Keyboard input for camera translation (existing code)
         if (GetKeyState('W') & 0x8000)
         {
-            Vec3 delta = forwardNorm * moveSpeed;
+            Azul::Vec3 delta = forwardNorm * moveSpeed;
             pos = pos + delta;
             tar = tar + delta;
             up  = up  + delta;
@@ -338,7 +346,7 @@ void CameraNodeMan::ProcessInput()
 
         if (GetKeyState('S') & 0x8000)
         {
-            Vec3 delta = forwardNorm * moveSpeed;
+            Azul::Vec3 delta = forwardNorm * moveSpeed;
             pos = pos - delta;
             tar = tar - delta;
             up  = up  - delta;
@@ -347,7 +355,7 @@ void CameraNodeMan::ProcessInput()
 
         if (GetKeyState('A') & 0x8000)
         {
-            Vec3 delta = rightNorm * moveSpeed;
+            Azul::Vec3 delta = rightNorm * moveSpeed;
             pos = pos - delta;
             tar = tar - delta;
             up  = up  - delta;
@@ -356,7 +364,7 @@ void CameraNodeMan::ProcessInput()
 
         if (GetKeyState('D') & 0x8000)
         {
-            Vec3 delta = rightNorm * moveSpeed;
+            Azul::Vec3 delta = rightNorm * moveSpeed;
             pos = pos + delta;
             tar = tar + delta;
             up  = up  + delta;
@@ -365,7 +373,7 @@ void CameraNodeMan::ProcessInput()
 
         if (GetKeyState('E') & 0x8000)
         {
-            Vec3 delta = upNorm * moveSpeed;
+            Azul::Vec3 delta = upNorm * moveSpeed;
             pos = pos + delta;
             tar = tar + delta;
             up  = up  + delta;
@@ -374,7 +382,7 @@ void CameraNodeMan::ProcessInput()
 
         if (GetKeyState('Q') & 0x8000)
         {
-            Vec3 delta = upNorm * moveSpeed;
+            Azul::Vec3 delta = upNorm * moveSpeed;
             pos = pos - delta;
             tar = tar - delta;
             up  = up  - delta;

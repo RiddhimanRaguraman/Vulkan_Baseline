@@ -4,7 +4,7 @@
 
 #include "CameraNull.h"
 
-namespace Azul
+namespace Neelam
 {
 
 	CameraNull::CameraNull()

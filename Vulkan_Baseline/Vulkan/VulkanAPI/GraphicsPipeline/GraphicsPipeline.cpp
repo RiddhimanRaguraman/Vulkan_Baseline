@@ -101,7 +101,7 @@ namespace Neelam::vk
 	//-----------------------------------------------------------------
 	// The frame.
 	//-----------------------------------------------------------------
-	void GraphicsPipeline::Render(const ShaderObject &shader)
+	void GraphicsPipeline::Render(const ShaderObject &shader, Camera *pCamera)
 	{
 		const uint32_t frameResIndex = (uint32_t)(this->privFrameIndex % MaxFramesInFlight);
 		const uint64_t signalValue   = this->privNextSignalValue++;
@@ -213,23 +213,50 @@ namespace Neelam::vk
 
 		vkCmdBeginRendering(res.commandBuffer, &renderingInfo);
 
-		// Viewport + scissor are dynamic (the pipeline left them out).
-		VkViewport viewport = {};
-		viewport.x        = 0.0f;
-		viewport.y        = 0.0f;
-		viewport.width    = (float)extent.width;
-		viewport.height   = (float)extent.height;
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
-		vkCmdSetViewport(res.commandBuffer, 0, 1, &viewport);
+		// Viewport + scissor are dynamic (the pipeline left them out), so the
+		// camera can own them. With no camera, fill the whole swapchain -- the
+		// behaviour this loop had before the camera existed.
+		if (pCamera != nullptr)
+		{
+			pCamera->SetActive(res.commandBuffer);
+		}
+		else
+		{
+			VkViewport viewport = {};
+			viewport.x        = 0.0f;
+			viewport.y        = 0.0f;
+			viewport.width    = (float)extent.width;
+			viewport.height   = (float)extent.height;
+			viewport.minDepth = 0.0f;
+			viewport.maxDepth = 1.0f;
+			vkCmdSetViewport(res.commandBuffer, 0, 1, &viewport);
 
-		VkRect2D scissor = {};
-		scissor.offset = { 0, 0 };
-		scissor.extent = extent;
-		vkCmdSetScissor(res.commandBuffer, 0, 1, &scissor);
+			VkRect2D scissor = {};
+			scissor.offset = { 0, 0 };
+			scissor.extent = extent;
+			vkCmdSetScissor(res.commandBuffer, 0, 1, &scissor);
+		}
 
 		// The triangle.
 		shader.SetActive(res.commandBuffer);			// vkCmdBindPipeline
+
+		// Camera matrices -> push constants. AFTER the bind, and every frame:
+		// the command pool was reset at the top of this function, so last
+		// frame's push constants are gone. Identity with no camera, which draws
+		// the raw world-space positions as if they were already in clip space.
+		ShaderMatrices matrices;
+		if (pCamera != nullptr)
+		{
+			matrices.view = pCamera->getViewMatrix();
+			matrices.proj = pCamera->getProjMatrix();
+		}
+		else
+		{
+			matrices.view.set(Azul::Identity);
+			matrices.proj.set(Azul::Identity);
+		}
+		shader.SetMatrices(res.commandBuffer, matrices);
+
 		vkCmdDraw(res.commandBuffer, 3, 1, 0, 0);
 
 		vkCmdEndRendering(res.commandBuffer);
