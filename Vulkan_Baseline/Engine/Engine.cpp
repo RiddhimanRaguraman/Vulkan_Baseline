@@ -4,6 +4,10 @@
 
 #include "Engine.h"
 
+// CircularData only FORWARD-declares Command (it stores pointers), so the full
+// definition is needed here to call Execute() through one.
+#include "Command.h"
+
 namespace Neelam
 {
 	// 1/30s. If a frame takes longer than this (e.g. stopped on a breakpoint),
@@ -86,6 +90,19 @@ namespace Neelam
 									  this->queueFamily.GetGraphicsFamilyIndex(),
 									  &this->swapchain);
 
+		// Command inboxes. Must exist BEFORE LoadContent, because that is where
+		// the game starts its worker threads (the ShaderWatcher) and they post
+		// as soon as they are running.
+		QueueMan::Create();
+
+		// The async worker. Started after the inboxes exist so it always has a
+		// queue to block on.
+		//
+		// The Engine owns the THREAD; it does not own the technique registry --
+		// ShaderObjects are content, so Game::LoadContent creates and destroys
+		// ShaderObjectNodeMan, same as it does CameraNodeMan.
+		this->privFileThread.Start();
+
 		// Hand off to the game to load its content.
 		this->LoadContent();
 
@@ -121,8 +138,39 @@ namespace Neelam
 			this->graphicsPipeline.ClearSwapchainStale();
 		}
 
+		// Actor-model inbox. Drained BEFORE Update so a shader reload posted
+		// last frame is live for this one's Render.
+		this->privDrainCommands();
+
 		this->Update(deltaTime);	// -> Game
 		this->Render();				// -> Game (drives graphicsPipeline.Render)
+	}
+
+	//-----------------------------------------------------------------
+	// Execute commands posted by worker threads. This is the ONE point where
+	// another thread's work touches engine state, which is exactly what makes
+	// "all Vulkan on the engine thread" (§9) true and checkable.
+	//
+	// It is a poll, deliberately. The check is an uncontended mutex lock
+	// (tens of ns against a 16ms frame); interrupting the frame instead would
+	// let a reload free a VkPipeline the in-flight command buffer already
+	// recorded. See §18.
+	//-----------------------------------------------------------------
+	void Engine::privDrainCommands()
+	{
+		CircularData *pInbox = QueueMan::GetEngineInQueue();
+		Command      *pCmd   = nullptr;
+
+		for (uint32_t i = 0; i < Engine::privMaxCommandsPerFrame; i++)
+		{
+			if (!pInbox->PopFront(pCmd))
+			{
+				break;
+			}
+
+			assert(pCmd);
+			pCmd->Execute();		// the command deletes itself
+		}
 	}
 
 	//-----------------------------------------------------------------
@@ -185,7 +233,23 @@ namespace Neelam
 		// validation error (VUID-vkDestroyPipeline-pipeline-00765).
 		vkDeviceWaitIdle(this->logicalDevice.GetDevice());
 
-		this->UnloadContent();	// -> Game
+		this->UnloadContent();	// -> Game (stops the watcher, destroys content)
+
+		// SHUTDOWN ORDER MATTERS -- this is what makes the actor chain safe
+		// without any handle/weak-pointer machinery:
+		//
+		//   1. UnloadContent stopped the ShaderWatcher, so nothing new can be
+		//      posted to the file thread. It also dropped the technique
+		//      registry -- safe, because from here on NO command is ever
+		//      EXECUTED, only deleted (steps 2 and 3).
+		//   2. Stop the file thread: joins it, then drains + deletes whatever
+		//      it never got to. After this, nothing can post to the engine.
+		//   3. QueueMan::Destroy drains + deletes the engine inbox. Anything a
+		//      compile posted after step 1 dies here WITHOUT executing -- which
+		//      is why it can never touch an already-destroyed technique.
+		this->privFileThread.Stop();
+
+		QueueMan::Destroy();
 
 		// Reverse of Initialize. The physical device is only a borrowed handle
 		// (nothing to release), but tear down in reverse order for discipline:

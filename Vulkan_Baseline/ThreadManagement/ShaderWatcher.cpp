@@ -3,16 +3,17 @@
 //-----------------------------------------------------------------
 
 #include "ShaderWatcher.h"
+#include "File_CompileShader_Cmd.h"
+#include "QueueMan.h"
 
-namespace Neelam::vk
+namespace Neelam
 {
 	ShaderWatcher::ShaderWatcher()
 		: privThread(),
 		  privRunning(false),
 		  privDir{},
 		  privLastSeen(0),
-		  privMailboxMtx(),
-		  privMailbox()
+		  poShader(nullptr)
 	{
 	}
 
@@ -21,9 +22,13 @@ namespace Neelam::vk
 		this->Stop();
 	}
 
-	void ShaderWatcher::Start(const char *pDir)
+	void ShaderWatcher::Start(const char *pDir, vk::ShaderObject *pShader)
 	{
+		assert(pDir);
+		assert(pShader);
+
 		strcpy_s(this->privDir, sizeof(this->privDir), pDir);
+		this->poShader = pShader;
 
 		// Baseline: whatever is newest right now is "already seen", so we only
 		// fire on edits made AFTER Start().
@@ -42,25 +47,9 @@ namespace Neelam::vk
 		}
 	}
 
-	bool ShaderWatcher::Drain()
-	{
-		std::lock_guard<std::mutex> lock(this->privMailboxMtx);
-		if (this->privMailbox.empty())
-		{
-			return false;
-		}
-
-		// Coalesce: several rapid edits collapse into one reload.
-		while (!this->privMailbox.empty())
-		{
-			this->privMailbox.pop();
-		}
-		return true;
-	}
-
 	//-----------------------------------------------------------------
 	// Background thread: poll the folder's newest write-time; on an increase,
-	// post a message. Nothing Vulkan happens here.
+	// post a reload command. Nothing Vulkan happens here.
 	//-----------------------------------------------------------------
 	void ShaderWatcher::privThreadMain()
 	{
@@ -81,10 +70,32 @@ namespace Neelam::vk
 			{
 				this->privLastSeen = newest;
 
-				Debug::out("change detected -> posting reload message\n");
+				Debug::out("change detected -> posting compile to FileThread\n");
 
-				std::lock_guard<std::mutex> lock(this->privMailboxMtx);
-				this->privMailbox.push(ShaderChangeMsg{});
+				// Goes to the FILE thread, not the engine: the compile is the
+				// expensive half (disk + DXC). It posts the resulting SPIR-V
+				// back to the engine, which does the Vulkan half.
+				//
+				// The command carries the shader's NAME and its two source
+				// paths BY VALUE -- never a ShaderObject*, because the engine
+				// thread may destroy the technique while this is in flight
+				// (§18). poShader is read here only, on this thread, and only
+				// for those immutable strings.
+				//
+				// privNewestWriteTime returns the MAX across the folder, so a
+				// multi-file save inside one 250ms tick is already one message.
+				Command *pCmd = new File_CompileShader_Cmd(
+					this->poShader->GetName(),
+					this->poShader->GetVertexPath(),
+					this->poShader->GetPixelPath());
+
+				if (!QueueMan::SendFile(pCmd))
+				{
+					// Inbox full: never handed over, so it is still ours to
+					// free. Dropping is fine -- the next save posts again.
+					Debug::out("file inbox FULL -- reload dropped\n");
+					delete pCmd;
+				}
 			}
 		}
 	}

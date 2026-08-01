@@ -28,15 +28,30 @@ namespace Neelam
 	{
 		Debug::out("Game: LoadContent\n");
 
+		// Technique registry. Content, so it lives here with CameraNodeMan --
+		// the Engine owns the FileThread but knows nothing about shaders.
+		// It is also how a cross-thread command resolves a ShaderObject::Name
+		// back to a live technique (§18).
+		vk::ShaderObjectNodeMan::Create(4, 2);
+
 		// Build the triangle technique (compiles HLSL -> SPIR-V -> pipeline).
 		// The pipeline bakes in the swapchain's color + depth formats.
 		this->triangleShader.Create(this->logicalDevice.GetDevice(),
 									this->swapchain.GetColorFormat(),
 									this->swapchain.GetDepthFormat());
 
+		// Register the technique so a cross-thread command can resolve it by
+		// NAME. The node BORROWS it -- triangleShader is a member of this Game,
+		// so the manager must not (and does not) delete it.
+		this->triangleShader.SetName(vk::ShaderObject::Name::ColorByVertex);
+		vk::ShaderObjectNodeMan::Add(&this->triangleShader);
+
 		// Start the background watcher on the shader folder. From here on,
-		// saving a .hlsl posts a message that Update() picks up (see below).
-		this->shaderWatcher.Start(SOLUTION_DIR "Vulkan_Baseline\\Shader\\hlsl");
+		// saving a .hlsl posts a compile to the FILE thread, which compiles the
+		// SPIR-V off-frame and posts the result back to the engine thread to be
+		// swapped in. Game does not participate -- that is the actor split.
+		this->shaderWatcher.Start(SOLUTION_DIR "Vulkan_Baseline\\Shader\\hlsl",
+								  &this->triangleShader);
 
 		// ---- cameras -------------------------------------------------------
 		// CameraNodeMan is a singleton manager over the Manager DLL's DLink list:
@@ -127,6 +142,14 @@ namespace Neelam
 		this->shaderWatcher.Stop();
 		this->triangleShader.Destroy();
 
+		// Nodes only -- ShaderObjectNode BORROWS its technique (triangleShader
+		// is a member of this Game), so nothing here deletes a ShaderObject.
+		//
+		// Safe to drop now even with a compile possibly still in flight: from
+		// this point Engine::Shutdown only ever DELETES queued commands, never
+		// executes them, so no Find() can run against a dead registry.
+		vk::ShaderObjectNodeMan::Destroy();
+
 		// Deletes every Camera it owns (the CameraNodes delete their Camera in
 		// privClear), plus the reserve pool and the compare strategy.
 		CameraNodeMan::Destroy();
@@ -141,15 +164,6 @@ namespace Neelam
 	{
 		AZUL_UNUSED_VAR(deltaTime);
 
-		// Drain the watcher's mailbox (engine thread side of the actor split).
-		// If a .hlsl was edited, rebuild the pipeline from the new source.
-		if (this->shaderWatcher.Drain())
-		{
-			this->triangleShader.Reload();
-		}
-
-		// Resize first, so Update() below recomputes the frustum + matrices
-		// against the new aspect in the same frame.
 		this->privSyncCamerasToWindow();
 
 		CameraNodeMan::Update();

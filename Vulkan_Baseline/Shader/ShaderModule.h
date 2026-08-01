@@ -37,6 +37,12 @@ namespace Neelam::vk
 		// Returns true if a NEW module was built and swapped in.
 		bool Reload();
 
+		// Same swap, but from SPIR-V the FileThread already compiled. This is
+		// the ONLY half of the reload that touches Vulkan, so it -- and not the
+		// compile -- is what must run on the engine thread. Does NOT release
+		// the blob; the caller owns it (vkCreateShaderModule copies the code).
+		bool CreateFromBlob(IDxcBlob *pSpirv);
+
 		void Destroy();
 
 		VkShaderModule                  GetModule() const;

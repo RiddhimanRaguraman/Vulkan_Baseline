@@ -13,8 +13,49 @@ namespace Neelam::vk
 		  vertexShader(),
 		  pixelShader(),
 		  privLayout(VK_NULL_HANDLE),
-		  privPipeline(VK_NULL_HANDLE)
+		  privPipeline(VK_NULL_HANDLE),
+		  privName(ShaderObject::Name::NOT_INITIALIZED)
 	{
+	}
+
+	ShaderObject::Name ShaderObject::GetName() const
+	{
+		return this->privName;
+	}
+
+	void ShaderObject::SetName(ShaderObject::Name name)
+	{
+		this->privName = name;
+	}
+
+	//-----------------------------------------------------------------
+	// Engine-thread half of the async hot-reload. The FileThread already did
+	// the disk read + DXC compile; all that is left is the Vulkan work, which
+	// may only happen here (§9).
+	//-----------------------------------------------------------------
+	void ShaderObject::ReloadFromBlobs(IDxcBlob *pVertexSpirv, IDxcBlob *pPixelSpirv)
+	{
+		// No in-flight work may be using the pipeline we are about to replace.
+		vkDeviceWaitIdle(this->privDevice);
+
+		// A null blob means that stage failed to compile -- keep its last-good
+		// module rather than breaking the running app.
+		bool changed = false;
+
+		if (pVertexSpirv != nullptr)
+		{
+			changed |= this->vertexShader.CreateFromBlob(pVertexSpirv);
+		}
+		if (pPixelSpirv != nullptr)
+		{
+			changed |= this->pixelShader.CreateFromBlob(pPixelSpirv);
+		}
+
+		if (changed)
+		{
+			this->privBuildPipeline();
+			Debug::out("ShaderObject: reloaded + pipeline rebuilt (async)\n");
+		}
 	}
 
 	ShaderObject::~ShaderObject()

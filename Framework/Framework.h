@@ -2167,6 +2167,14 @@ constexpr const char* MEMORY_TRACKING_ENABLE_STRING = "enabled         ";
 constexpr const char* MEMORY_TRACKING_ENABLE_STRING = "--> DISABLED <--";
 #endif
 
+// NOTE: do NOT add USE_THREAD_FRAMEWORK / USE_VULKAN_FRAMEWORK tier strings to
+// the banner above. The banner is printed by the FIRST module to run
+// ProcessBegin, and a DLL's static initializers run before the exe's -- so the
+// printer is always a lib DLL, which is in neither tier. It would honestly
+// report its own tiers and dishonestly look like a statement about the program.
+// Same trap as the VkLeak dump (see the tier gotcha in the build notes).
+// The app prints its own tiers from Engine::Initialize instead.
+
 class MemTrace
 {
 private:

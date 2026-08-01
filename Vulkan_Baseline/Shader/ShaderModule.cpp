@@ -55,6 +55,33 @@ namespace Neelam::vk
 		return true;
 	}
 
+	bool ShaderModule::CreateFromBlob(IDxcBlob *pSpirv)
+	{
+		assert(pSpirv);
+
+		VkShaderModuleCreateInfo info = {};
+		info.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		info.codeSize = pSpirv->GetBufferSize();						// bytes
+		info.pCode    = (const uint32_t *)pSpirv->GetBufferPointer();
+
+		VkShaderModule fresh = VK_NULL_HANDLE;
+		VkResult res = vkCreateShaderModule(this->privDevice, &info, nullptr, &fresh);
+
+		if (res != VK_SUCCESS)
+		{
+			Debug::out("ShaderModule: vkCreateShaderModule failed for '%s' (%d)\n",
+				this->privPath, (int)res);
+			return false;
+		}
+
+		if (this->privModule != VK_NULL_HANDLE)
+		{
+			vkDestroyShaderModule(this->privDevice, this->privModule, nullptr);
+		}
+		this->privModule = fresh;
+		return true;
+	}
+
 	void ShaderModule::Destroy()
 	{
 		if (this->privModule != VK_NULL_HANDLE)

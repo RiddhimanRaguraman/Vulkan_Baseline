@@ -9,6 +9,7 @@
 #include "ShaderObject_ColorByVertex.h"
 #include "ShaderWatcher.h"
 #include "CameraNodeMan.h"
+#include "ShaderObjectNodeMan.h"
 
 //---------------------------------------------------------------------------
 // class Game
@@ -48,8 +49,10 @@ namespace Neelam
 		void privSyncCamerasToWindow();
 
 		// The triangle technique + the background watcher that hot-reloads it.
+		// ShaderWatcher is Neelam:: (threading plumbing), not Neelam::vk -- it
+		// touches no Vulkan, it only posts commands.
 		vk::ShaderObject_ColorByVertex triangleShader;
-		vk::ShaderWatcher              shaderWatcher;
+		ShaderWatcher                  shaderWatcher;
 
 		// Last extent the cameras were sized against, so the sync above only
 		// runs on an actual resize instead of every frame.

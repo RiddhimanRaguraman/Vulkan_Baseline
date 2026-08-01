@@ -61,6 +61,23 @@ namespace Neelam::vk
 	class ShaderObject
 	{
 	public:
+		//-----------------------------------------------------------------
+		// Identity for manager lookup. A cross-thread command carries this
+		// NAME, never a ShaderObject* -- the engine thread resolves it through
+		// ShaderObjectMan::Find() when the command executes, so a technique
+		// destroyed while a compile was in flight resolves to nullptr instead
+		// of a dangling pointer. (Handles are a self-pin, not a weak pointer;
+		// see the correction in the build notes.)
+		//-----------------------------------------------------------------
+		enum class Name
+		{
+			ColorByVertex,
+
+			NOT_INITIALIZED,
+			NullShader
+		};
+
+	public:
 		ShaderObject();
 		ShaderObject(const ShaderObject &) = delete;
 		ShaderObject &operator = (const ShaderObject &) = delete;
@@ -93,6 +110,22 @@ namespace Neelam::vk
 		void SetMatrices(VkCommandBuffer cmd, const ShaderMatrices &matrices) const;
 
 		//-----------------------------------------------------------------
+		// Async hot-reload (engine thread half)
+		//-----------------------------------------------------------------
+
+		// Swap in modules built from SPIR-V that the FileThread already
+		// compiled, then rebuild the pipeline. Same end state as Reload(), but
+		// the expensive part (disk + DXC) happened off-thread.
+		// Either blob may be null -> that stage keeps its last-good module.
+		void ReloadFromBlobs(IDxcBlob *pVertexSpirv, IDxcBlob *pPixelSpirv);
+
+		//-----------------------------------------------------------------
+		// Identity
+		//-----------------------------------------------------------------
+		ShaderObject::Name GetName() const;
+		void               SetName(ShaderObject::Name name);
+
+		//-----------------------------------------------------------------
 		// Accessors
 		//-----------------------------------------------------------------
 		VkPipeline       GetPipeline() const;
@@ -113,6 +146,8 @@ namespace Neelam::vk
 
 		VkPipelineLayout privLayout;
 		VkPipeline       privPipeline;
+
+		ShaderObject::Name privName;
 
 	private:
 		void privBuildLayout();
