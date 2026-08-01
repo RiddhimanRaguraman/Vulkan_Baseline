@@ -5054,10 +5054,10 @@ using namespace std::chrono;
 
 // volk is the single Vulkan include for the whole solution. It defines every
 // vk* name as a function POINTER that volkInitialize / volkLoadInstance /
-// volkLoadDevice fill in at runtime; the definitions are compiled once by the
-// IMPLEMENTATION section at the end of this file (reached only from the single
-// TU that sets VULKAN_FRAMEWORK_IMPLEMENTATION -- main.cpp). Only DECLARATIONS
-// come in here. VK_NO_PROTOTYPES and VK_USE_PLATFORM_WIN32_KHR are
+// volkLoadDevice fill in at runtime; the definitions are compiled once, by
+// Framework/VulkanImpl.cpp. Only DECLARATIONS come in here -- this header is
+// force-included into every TU, and a definition may exist only once in the
+// program. VK_NO_PROTOTYPES and VK_USE_PLATFORM_WIN32_KHR are
 // project-level defines (premake5.lua) -- only projects in the Vulkan tier set
 // them, which is why this include cannot be unconditional.
 #include <Volk/volk.h>
@@ -5513,94 +5513,10 @@ namespace Neelam::vk
 
 #endif   // USE_VULKAN_FRAMEWORK
 
-// ===========================================================================
-//                    VULKAN FRAMEWORK -- IMPLEMENTATION
-//     <search>: VULKAN_FRAMEWORK_IMPLEMENTATION
-//
-// The bodies of volk + VMA, compiled in EXACTLY ONE translation unit.
-//
-// This block sits deliberately OUTSIDE the VULKAN_FRAMEWORK_H guard above --
-// the same single-header idiom volk and VMA use themselves. The one TU that
-// wants the bodies includes this header a SECOND time with the macro set:
-//
-//     main.cpp:
-//         #define VULKAN_FRAMEWORK_IMPLEMENTATION
-//         #include "Framework.h"
-//
-// On that second pass the guards swallow every declaration and only this block
-// compiles. The second include is what makes it work at all: Framework.h is
-// FORCE-included, so a TU has no way to define the macro before the first one.
-//// ===========================================================================
-
-#if defined(USE_VULKAN_FRAMEWORK) && defined(VULKAN_FRAMEWORK_IMPLEMENTATION)
-#undef VULKAN_FRAMEWORK_IMPLEMENTATION
-
-// --- volk ---------------------------------------------------------------
-// No barricade needed: volk is C-style function-pointer loading and never uses
-// new / malloc.
-#define VOLK_IMPLEMENTATION
-#include <Volk/volk.h>
-
-// --- VMA ----------------------------------------------------------------
-// VMA_ASSERT_LEAK is VMA's own hook for "an allocation was never freed". Its
-// default is assert(), and pressing Abort on that dialog calls abort() -- which
-// tears the process down BEFORE MemTrace::ProcessEnd runs, so the VkLeak report
-// never prints. Here MemTrace OWNS leak reporting, which makes VMA's abort both
-// redundant and actively harmful: it destroys the very output we want. So route
-// it to Debug::out and let the run finish.
-//
-// VMA_ASSERT proper is left FATAL -- a genuine VMA programming error still
-// breaks into the debugger. Only the leak assert is downgraded.
-//
-// %.120s caps the expression: Debug::out formats through a 256-char vsprintf_s,
-// and overflowing that trips its own "Buffer too small" assert.
-#define VMA_ASSERT_LEAK(expr)                                                     \
-	do                                                                            \
-	{                                                                             \
-		if (!(expr))                                                              \
-		{                                                                         \
-			Debug::out("[VMA] unfreed allocation -- vk_mem_alloc.h(%d)\n", __LINE__); \
-			Debug::out("[VMA] %.120s\n", #expr);                                  \
-		}                                                                         \
-	} while (false)
-
-// Per-allocation detail, for block (non-dedicated) leaks.
-#define VMA_LEAK_LOG_FORMAT(format, ...)                                          \
-	do                                                                            \
-	{                                                                             \
-		Debug::out("[VMA] " format "\n", __VA_ARGS__);                             \
-	} while (false)
-
-// Barricaded: the memory-tracking macro above rewrites `new` into
-// new(_NORMAL_BLOCK, __FILE__, __LINE__), and VMA uses PLACEMENT new (new(ptr) T)
-// internally, which that macro turns into a syntax error. Neutralize the memory
-// macros across this include only, then put them back -- balanced, so every
-// `new` after this point is tracked normally again.
-//
-// (The framework's AZUL_PLACEMENT_NEW_BEGIN/END are the sanctioned form, but
-// they emit runtime statements -- an assert + a counter bump -- so they only
-// work INSIDE a function body. Around a file-scope #include, use the underlying
-// push_macro / #undef / pop_macro directly.)
-#pragma push_macro("new")
-#pragma push_macro("malloc")
-#pragma push_macro("free")
-#pragma push_macro("calloc")
-#pragma push_macro("realloc")
-#undef new
-#undef malloc
-#undef free
-#undef calloc
-#undef realloc
-
-#define VMA_IMPLEMENTATION
-#include <vma/vk_mem_alloc.h>
-
-#pragma pop_macro("realloc")
-#pragma pop_macro("calloc")
-#pragma pop_macro("free")
-#pragma pop_macro("malloc")
-#pragma pop_macro("new")
-
-#endif   // USE_VULKAN_FRAMEWORK && VULKAN_FRAMEWORK_IMPLEMENTATION
+// The BODIES of volk + VMA are NOT here. They are ordinary non-inline functions
+// and globals, so they may exist exactly once in the program -- and this header
+// is force-included into all 23 app TUs. They live in Framework/VulkanImpl.cpp,
+// which the app project compiles on its own; see the note at the top of that
+// file. Everything above is declarations only.
 
 // ---  End of File ---

@@ -2,16 +2,7 @@
 // Copyright 2026 by Riddhiman Raguraman
 //-----------------------------------------------------------------
 
-// This TU is the ONE that compiles the framework's volk + VMA bodies.
-// Framework.h is force-included, so the macro cannot be set before that first
-// include -- including it a second time here is exactly how the implementation
-// block is reached (it sits outside the header guard, same as volk's and VMA's
-// own). See VULKAN_FRAMEWORK_IMPLEMENTATION in Framework.h.
-#define VULKAN_FRAMEWORK_IMPLEMENTATION
-#include "Framework.h"
-
 #include "MathEngine.h"
-
 #include "Game.h"
 
 //---------------------------------------------------------------------------

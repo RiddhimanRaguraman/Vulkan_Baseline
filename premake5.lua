@@ -286,10 +286,10 @@ end
 -- while the app additionally gets the thread + Vulkan frameworks -- from the
 -- same file, with no #define buried inside it.
 --
--- It is Framework.h and nothing else -- there is no implementation .cpp. The
--- volk + VMA bodies live at the end of Framework.h behind
--- VULKAN_FRAMEWORK_IMPLEMENTATION, and main.cpp is the single TU that includes
--- the header a second time to compile them.
+-- HEADERS ONLY. Framework/VulkanImpl.cpp is deliberately not listed here: shared
+-- items are compiled by EVERY project that references this one, and the lib DLLs
+-- have neither USE_VULKAN_FRAMEWORK nor the Vulkan SDK include path. The app
+-- project lists that file itself.
 --=============================================================================
 project "Framework"
 	kind     "SharedItems"
@@ -331,9 +331,11 @@ project "Vulkan_Baseline"
 		"Vulkan_Baseline/**.cpp"
 	}
 
-	-- No implementation .cpp is added from Framework/: the volk + VMA bodies live
-	-- in Framework.h behind VULKAN_FRAMEWORK_IMPLEMENTATION, and main.cpp is the
-	-- single TU that includes the header a second time to compile them.
+	-- Vulkan/VulkanAPI/Utilities/VulkanImpl.cpp -- the one TU that compiles the
+	-- volk + VMA bodies -- is picked up by the glob above. It deliberately does
+	-- NOT live in the shared "Framework" project: shared items are compiled by
+	-- every consumer, and the lib DLLs are not in the Vulkan tier (no
+	-- USE_VULKAN_FRAMEWORK, no SDK include path).
 
 	-- Every folder under Vulkan_Baseline/, discovered at generate time, so
 	-- Engine / Game / Shader / ThreadManagement / Vulkan and any subfolder they
@@ -361,13 +363,12 @@ project "Vulkan_Baseline"
 	-- Vulkan tier -- see the defines block below.
 	links { "Framework" }
 
-	-- volk + VMA are compiled straight into the app -- no separate static lib and
-	-- no implementation .cpp: their bodies live in Framework.h, and main.cpp is
-	-- the one TU that pulls them in (VULKAN_FRAMEWORK_IMPLEMENTATION). We do not
-	-- link vulkan-1.lib either: volk loads vulkan-1.dll itself at runtime
-	-- (volkInitialize), so only the SDK include path (added above) is needed for
-	-- the headers. vkCreateInstance and friends resolve to volk's function
-	-- pointers, which that implementation block defines.
+	-- volk + VMA are compiled straight into the app via Framework/VulkanImpl.cpp
+	-- (listed above) -- no separate static lib. We do not link vulkan-1.lib
+	-- either: volk loads vulkan-1.dll itself at runtime (volkInitialize), so only
+	-- the SDK include path (added above) is needed for the headers.
+	-- vkCreateInstance and friends resolve to volk's function pointers, which
+	-- VulkanImpl.cpp defines.
 
 	-- DXC (DirectX Shader Compiler) -- compiles HLSL to SPIR-V at RUNTIME, for
 	-- hot-reloadable shaders. This one IS a normal import lib (unlike volk), so

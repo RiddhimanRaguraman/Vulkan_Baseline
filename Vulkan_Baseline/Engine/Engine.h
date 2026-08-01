@@ -97,15 +97,12 @@ namespace Neelam
 		// (and later a device/swapchain built here) can reach the instance
 		// and surface.
 		//-----------------------------------------------------------------
-		vk::Window         window;
-		vk::Instance       instance;
-		vk::Surface        surface;
-		vk::PhysicalDevice physicalDevice;
-		vk::QueueFamily    queueFamily;
-		vk::LogicalDevice  logicalDevice;
-		// No allocator member: the VmaAllocator is vk::VulkanAllocator, a
-		// framework singleton (Framework.h). Engine drives its Create/Destroy in
-		// the staging order below; everyone else just calls Get().
+		vk::Window			 window;
+		vk::Instance		 instance;
+		vk::Surface			 surface;
+		vk::PhysicalDevice   physicalDevice;
+		vk::QueueFamily		 queueFamily;
+		vk::LogicalDevice	 logicalDevice;
 		vk::Swapchain        swapchain;
 		vk::GraphicsPipeline graphicsPipeline;	// the frame loop; Game::Render drives it
 

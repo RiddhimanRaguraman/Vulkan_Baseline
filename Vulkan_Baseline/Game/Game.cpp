@@ -152,8 +152,6 @@ namespace Neelam
 		// against the new aspect in the same frame.
 		this->privSyncCamerasToWindow();
 
-		// Walks every camera: ProcessInput (WASD/QE move, mouse drag to orbit,
-		// Z/C zoom) then updateCamera() to rebuild view + projection.
 		CameraNodeMan::Update();
 	}
 
@@ -171,7 +169,7 @@ namespace Neelam
 		// still built from SV_VertexID in the vertex shader with no transform, so
 		// there is nothing to multiply them into. Feeding getViewMatrix() /
 		// getProjMatrix() to the shader needs a push constant or UBO + a pipeline
-		// layout, which lands with the vertex/index buffer work (§15).
+		// layout, which lands with the vertex/index buffer work.
 		this->graphicsPipeline.Render(this->triangleShader,
 									  CameraNodeMan::GetCurrent(Camera::Type::PERSPECTIVE_3D));
 	}
