@@ -10,6 +10,7 @@
 #include "ShaderObject.h"
 #include "Color.h"
 #include "Camera.h"
+#include "GpuBuffer.h"
 
 //---------------------------------------------------------------------------
 // class GraphicsPipeline
@@ -60,7 +61,14 @@ namespace Neelam::vk
 		// Non-const because Camera::getViewMatrix()/getProjMatrix() are non-const
 		// accessors in the ported DX11 camera.
 		//-----------------------------------------------------------------
-		void Render(const ShaderObject &shader, Camera *pCamera = nullptr);
+		// pVertex/pIndex supply the geometry. Pass nullptr for both to fall back
+		// to a bare vkCmdDraw(3) -- what the loop did when the triangle was
+		// baked into the vertex shader.
+		void Render(const ShaderObject &shader,
+					Camera *pCamera = nullptr,
+					const GpuBuffer *pVertex = nullptr,
+					const GpuBuffer *pIndex = nullptr,
+					uint32_t indexCount = 0);
 
 		bool IsSwapchainStale() const;
 		void ClearSwapchainStale();

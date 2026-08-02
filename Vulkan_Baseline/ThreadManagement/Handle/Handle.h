@@ -8,6 +8,17 @@
 //---------------------------------------------------------------------------
 // class Handle
 //
+// >>> NOT WIRED TO ANYTHING YET. This is a deliberate keep, not an oversight.
+//
+// Ported for the actor model (§18 phase 3), then not needed: the cross-thread
+// lifetime problem there -- "is the ShaderObject this command names still
+// alive?" -- is solved by ShaderObjectNodeMan::Find(name), because a Handle is
+// NOT a weak pointer (see below). It is kept because it is the correct tool for
+// a different problem this engine will hit: an object whose own methods can be
+// called from more than one thread. Nothing has that shape today.
+//
+// If that never materializes, delete the folder -- it costs nothing to remove.
+//
 // A cross-thread answer to "is the thing this message points at still alive?"
 //
 // A raw pointer cannot answer that. Thread A posts a command holding

@@ -11,10 +11,13 @@
 // class ShaderObject_ColorByVertex
 //
 // The concrete triangle technique (same name Azul used for the vertex-colored
-// shader). It only supplies its two .hlsl source files; the base does the
-// compile, pipeline build, and hot-reload. The triangle's vertices + colors
-// live inside the vertex shader (indexed by SV_VertexID), so there is no
-// vertex buffer or input layout to configure here yet.
+// shader). It supplies its two .hlsl source files AND its vertex layout; the
+// base does the compile, pipeline build, and hot-reload.
+//
+// The layout describes VertexPosColor (GpuBuffer.h) -- position at offset 0,
+// color at 12, stride 24. These three numbers, that struct, and the HLSL
+// input struct must agree; a mismatch is a validation error at pipeline
+// creation, not a silent wrong result.
 //---------------------------------------------------------------------------
 
 namespace Neelam::vk
@@ -29,6 +32,9 @@ namespace Neelam::vk
 
 		virtual const char *GetVertexPath() const override;
 		virtual const char *GetPixelPath() const override;
+
+		virtual uint32_t GetVertexBindings(const VkVertexInputBindingDescription **ppOut) const override;
+		virtual uint32_t GetVertexAttributes(const VkVertexInputAttributeDescription **ppOut) const override;
 	};
 }
 

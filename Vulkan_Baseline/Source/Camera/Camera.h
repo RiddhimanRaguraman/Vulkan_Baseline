@@ -79,15 +79,15 @@ namespace Neelam
 		// Why no SETS?  Pos,Dir,Up,LookAt, Right
 		//   They have to be adjust together in setOrientAndPosition()
 
-		// NOTE: these two are misnamed -- they get/set aspectRatio, NOT the field
-		// of view. Kept as-is so existing call sites behave the same; use
-		// setAspectRatio() below when you mean the aspect ratio.
-		void getFieldOfView(float &Value) const;
-		void setFieldOfView(const float Value);
-
-		// ADDED (not in the DX11 original): update the aspect ratio alone, for a
-		// window resize. setPerspective() would work but also rewrites fovy from
-		// degrees, which would stomp the Z/C zoom in CameraNodeMan::ProcessInput.
+		// The DX11 original called these getFieldOfView/setFieldOfView, but both
+		// only ever touched aspectRatio -- the names were simply wrong. Renamed
+		// rather than kept, since nothing outside Camera ever called them.
+		// (setFieldOfView was byte-for-byte setAspectRatio, so it is gone.)
+		//
+		// Use these, not setPerspective(), to react to a window resize:
+		// setPerspective also rewrites fovy from degrees, which would stomp the
+		// Z/C zoom in CameraNodeMan::ProcessInput. Actual FOV is GetFovY/SetFovY.
+		void getAspectRatio(float &Value) const;
 		void setAspectRatio(const float Value);
 
 		void getNearDist(float &Value) const;
@@ -119,6 +119,7 @@ namespace Neelam
 		void SetFovY(float f)
 		{
 			this->fovy = f;
+			this->privDirty = true;		// Z/C zoom -- must rebuild the projection
 		}
 
 	private:  // methods should never be public
@@ -203,10 +204,21 @@ namespace Neelam
 		int		viewport_width;
 		int		viewport_height;
 
+		// ADDED: updateCamera() rebuilds 8 frustum verts, 6 cross products with
+		// normalizes, and both matrices. That ran EVERY frame for EVERY camera
+		// whether or not anything had moved -- by far the largest per-frame cost
+		// in Game::Update. Every mutator sets this; updateCamera() early-outs
+		// when it is clear.
+		bool	privDirty;
+
 		// Name
 	public:
 		Camera::Name name;
-		char pad[12];
+
+		// pad was [12]; privDirty above took one byte, so this drops to 11 to
+		// keep sizeof(Camera) unchanged. The class is Align16 and the padding
+		// is hand-balanced -- adjust the two together.
+		char pad[11];
 	};
 
 }

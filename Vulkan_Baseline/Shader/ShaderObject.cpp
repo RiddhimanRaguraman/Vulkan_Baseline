@@ -18,6 +18,20 @@ namespace Neelam::vk
 	{
 	}
 
+	// Default: no vertex input. A technique that wants vertex buffers overrides
+	// both of these (see ShaderObject_ColorByVertex).
+	uint32_t ShaderObject::GetVertexBindings(const VkVertexInputBindingDescription **ppOut) const
+	{
+		*ppOut = nullptr;
+		return 0;
+	}
+
+	uint32_t ShaderObject::GetVertexAttributes(const VkVertexInputAttributeDescription **ppOut) const
+	{
+		*ppOut = nullptr;
+		return 0;
+	}
+
 	ShaderObject::Name ShaderObject::GetName() const
 	{
 		return this->privName;
@@ -167,10 +181,20 @@ namespace Neelam::vk
 			this->pixelShader.GetStageCreateInfo()
 		};
 
-		// No vertex buffers -- the vertex shader builds positions from
-		// SV_VertexID, so the vertex input state is empty.
+		// Vertex layout comes from the derived technique (default: none, for a
+		// shader that builds its own positions from SV_VertexID).
+		const VkVertexInputBindingDescription   *pBindings   = nullptr;
+		const VkVertexInputAttributeDescription *pAttributes = nullptr;
+
+		const uint32_t bindingCount   = this->GetVertexBindings(&pBindings);
+		const uint32_t attributeCount = this->GetVertexAttributes(&pAttributes);
+
 		VkPipelineVertexInputStateCreateInfo vertexInput = {};
-		vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		vertexInput.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		vertexInput.vertexBindingDescriptionCount   = bindingCount;
+		vertexInput.pVertexBindingDescriptions      = pBindings;
+		vertexInput.vertexAttributeDescriptionCount = attributeCount;
+		vertexInput.pVertexAttributeDescriptions    = pAttributes;
 
 		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
 		inputAssembly.sType    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;

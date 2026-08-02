@@ -3,28 +3,38 @@
 //-----------------------------------------------------------------
 // ColorByVertex -- vertex stage.
 //
-// 3 positions + 3 colors baked in, indexed by SV_VertexID -- still no vertex
-// buffer. The positions are now WORLD space and go through the camera's view +
-// projection, handed over as push constants. Edit this file while the app runs
-// and the ShaderWatcher will hot-reload it.
+// Reads a real VERTEX BUFFER now (VertexPosColor: float3 pos + float3 color,
+// stride 24) instead of building positions from SV_VertexID. The layout is
+// declared C++-side in ShaderObject_ColorByVertex; the semantics below must
+// line up with the attribute LOCATIONS there -- POSITION is location 0, COLOR0
+// is location 1.
+//
+// Edit this file while the app runs and the ShaderWatcher will hot-reload it.
 
 //-----------------------------------------------------------------
-// Push constants -- must match Neelam::vk::ShaderMatrices exactly (128 bytes),
-// and match the VkPushConstantRange declared in ShaderObject::privBuildLayout.
+// Push constants -- must match Neelam::vk::ShaderMatrices exactly (128 bytes)
+// and the VkPushConstantRange in ShaderObject::privBuildLayout.
 //
 // row_major is NOT optional. HLSL packs matrices COLUMN-major by default, but
 // Azul::Mat4 is stored as 4 row Vec4s and Azul is a row-vector library (v * M).
-// Without row_major every matrix arrives transposed and the triangle vanishes
-// off-screen. With it, mul(vector, matrix) below is the same operation the C++
-// side does.
+// Without it every matrix arrives transposed and the geometry vanishes.
+//
+// viewProj is premultiplied on the CPU, so this is world THEN viewProj -- the
+// same left-to-right order the C++ side uses.
 //-----------------------------------------------------------------
 struct PushConstants
 {
-	row_major float4x4 view;
-	row_major float4x4 proj;
+	row_major float4x4 world;
+	row_major float4x4 viewProj;
 };
 
 [[vk::push_constant]] PushConstants pc;
+
+struct VSInput
+{
+	float3 position : POSITION;
+	float3 color    : COLOR0;
+};
 
 struct VSOutput
 {
@@ -32,34 +42,14 @@ struct VSOutput
 	float3 color    : COLOR0;
 };
 
-// World space, +Y UP. These used to be authored directly in Vulkan NDC (where
-// +Y is DOWN), so the signs are flipped from the original: the camera's
-// projection now does the Y flip (see Camera::privUpdateProjectionMatrix).
-// One unit tall, sitting at the origin -- the camera is 5 units back on +Z.
-static const float2 positions[3] =
-{
-	float2( 0.0,  0.5),		// top
-	float2( 0.5, -0.5),		// bottom-right
-	float2(-0.5, -0.5)		// bottom-left
-};
-
-static const float3 colors[3] =
-{
-	float3(1.0, 0.0, 0.0),	// red
-	float3(0.0, 1.0, 0.0),	// green
-	float3(0.0, 0.0, 1.0)	// blue
-};
-
-VSOutput main(uint vertexID : SV_VertexID)
+VSOutput main(VSInput input)
 {
 	VSOutput output;
 
-	// Row-vector chain, left to right: world -> view -> clip. Matches the C++
-	// side's  pos = Vec4(pos, 1.0f) * M.
-	float4 worldPos = float4(positions[vertexID], 0.0, 1.0);
-	float4 viewPos  = mul(worldPos, pc.view);
-	output.position = mul(viewPos, pc.proj);
+	// Row-vector chain, left to right: model -> world -> clip.
+	float4 worldPos = mul(float4(input.position, 1.0), pc.world);
+	output.position = mul(worldPos, pc.viewProj);
 
-	output.color = colors[vertexID];
+	output.color = input.color;
 	return output;
 }

@@ -33,7 +33,7 @@ namespace Neelam
 	}
 
 	Camera::Camera(Camera::Type _camType)
-		: aspectRatio(0), farDist(0), fovy(0), nearDist(0)
+		: aspectRatio(0), farDist(0), fovy(0), nearDist(0), privDirty(true)
 	{
 		//out("Camera(): ---------\n");
 		this->name = Camera::Name::NOT_INITIALIZED;
@@ -78,6 +78,7 @@ namespace Neelam
 		this->fovy = Azul::MATH_PI_180 * Fovy;
 		this->nearDist = NearDist;
 		this->farDist = FarDist;
+		this->privDirty = true;
 	}
 
 	void Camera::setOrthographic(const float _xMin, const float _xMax, const float _yMin, const float _yMax, const float _zMin, const float _zMax)
@@ -97,6 +98,7 @@ namespace Neelam
 		this->near_width = this->yMax - this->yMin;
 		this->nearDist = this->zMin;
 		this->farDist = this->zMax;
+		this->privDirty = true;
 	}
 
 	int Camera::getScreenWidth() const
@@ -187,6 +189,7 @@ namespace Neelam
 		this->vUp.norm();
 
 		this->vPos = inPos;
+		this->privDirty = true;
 	};
 
 	void Camera::privCalcFrustumVerts(void)
@@ -337,8 +340,20 @@ namespace Neelam
 	};
 
 	// Update everything (make sure it's consistent)
+	//
+	// ADDED -- dirty gate. CameraNodeMan::Update() calls this on every camera
+	// every frame. The body below is 8 frustum verts, 6 cross products with
+	// normalizes, and two full matrix rebuilds; running it for a camera that
+	// has not moved is pure waste, and it was the largest per-frame cost in
+	// Game::Update. Every mutator sets privDirty (see Camera.h).
 	void Camera::updateCamera(void)
 	{
+		if (!this->privDirty)
+		{
+			return;
+		}
+		this->privDirty = false;
+
 		// First find the near height/width, far height/width
 		this->privCalcPlaneHeightWidth();
 
@@ -391,20 +406,16 @@ namespace Neelam
 		outRight = this->vRight;
 	}
 
-	void Camera::getFieldOfView(float &Value) const
+	// Renamed from getFieldOfView/setFieldOfView -- see the note in Camera.h.
+	void Camera::getAspectRatio(float &Value) const
 	{
 		Value = this->aspectRatio;
 	}
 
-	void Camera::setFieldOfView(const float Value)
-	{
-		this->aspectRatio = Value;
-	}
-
-	// ADDED (not in the DX11 original) -- see the note in Camera.h.
 	void Camera::setAspectRatio(const float Value)
 	{
 		this->aspectRatio = Value;
+		this->privDirty = true;
 	}
 
 	void Camera::getNearDist(float &Value) const
@@ -415,6 +426,7 @@ namespace Neelam
 	void Camera::setNearDist(const float Value)
 	{
 		this->nearDist = Value;
+		this->privDirty = true;
 	}
 
 	void Camera::getNearTopLeft(Azul::Vec3 &vOut) const

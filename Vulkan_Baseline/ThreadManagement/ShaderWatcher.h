@@ -7,15 +7,11 @@
 
 #include "ShaderObject.h"		// Name + the two source paths, read on this thread
 
-// std::thread / mutex / atomic come from Framework.h. Nothing else is needed:
-// the mailbox is a CircularData owned by QueueMan now, so <queue> is gone --
-// this was the app's last STL container (§2, §18).
-
 //---------------------------------------------------------------------------
 // class ShaderWatcher   (an actor)
 //
-// A background thread that watches a folder of .hlsl files and, when one is
-// edited, POSTS a File_CompileShader_Cmd to the FILE thread's inbox.
+// Watches a folder of .hlsl files and, when one is edited, POSTS a
+// File_CompileShader_Cmd to the FILE thread's inbox.
 //
 // Three actors, one direction:
 //   Watcher  detects the change, posts the shader NAME + source paths
@@ -26,17 +22,14 @@
 // stall a frame, while ALL Vulkan work belongs to the engine thread (§9). This
 // thread does neither -- it only detects and posts.
 //
-// It no longer owns a mailbox. Inboxes belong to the CONSUMER (QueueMan), which
-// is what lets other actors post to the engine later without touching this
-// class.
+// DETECTION IS OS-DRIVEN, NOT POLLED. It blocks in WaitForMultipleObjects on
+// {change-notification, quit-event}, so an idle watcher costs exactly zero CPU
+// and a save is seen immediately -- where the old version woke 4x/second to
+// stat the folder and could be up to 250ms late. Timestamps are still compared,
+// but only to DEDUPE: editors commonly write a file two or three times per
+// save, and the notification fires for each.
 //
-// Change detection is timestamp polling, robust against editors that save
-// twice. It is internal to the thread; swapping in ReadDirectoryChangesW
-// (§18 -- blocks until the OS reports a change, instead of waking 4x/second)
-// would not touch anything outside this file.
-//
-// Namespace is Neelam, not Neelam::vk: this is threading plumbing, not a
-// Vulkan object (§1).
+// Namespace is Neelam, not Neelam::vk: threading plumbing, not a Vulkan object.
 //---------------------------------------------------------------------------
 
 namespace Neelam
@@ -49,12 +42,13 @@ namespace Neelam
 		ShaderWatcher &operator = (const ShaderWatcher &) = delete;
 		~ShaderWatcher();
 
-		// Launch the watcher thread on pDir (polls *.hlsl there). pShader is
-		// the technique a detected change should rebuild -- it is only ever
-		// stored into the posted command, never dereferenced on this thread.
+		// Launch the watcher thread on pDir (watches *.hlsl there). pShader is
+		// the technique a change should rebuild -- only its NAME and its two
+		// immutable source paths are read, and only on this thread.
 		void Start(const char *pDir, vk::ShaderObject *pShader);
 
-		// Stop and join. Safe to call more than once.
+		// Signals the quit event, wakes the blocked wait, joins. Safe to call
+		// more than once.
 		void Stop();
 
 	private:
@@ -62,9 +56,13 @@ namespace Neelam
 		static unsigned long long privNewestWriteTime(const char *pDir);
 
 		std::thread        privThread;
-		std::atomic<bool>  privRunning;
 		char               privDir[512];
 		unsigned long long privLastSeen;
+
+		// Manual-reset event, signalled by Stop(). Waited on ALONGSIDE the
+		// change notification, which is what lets the thread block forever and
+		// still shut down promptly -- no timeout, no polling.
+		HANDLE             privQuitEvent;
 
 		vk::ShaderObject  *poShader;		// borrowed; see Start()
 	};

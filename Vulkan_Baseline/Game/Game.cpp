@@ -10,6 +10,9 @@ namespace Neelam
 		: Engine(),
 		  triangleShader(),
 		  shaderWatcher(),
+		  triangleVerts(),
+		  triangleIndices(),
+		  triangleIndexCount(0),
 		  privCamWidth(0),
 		  privCamHeight(0)
 	{
@@ -45,6 +48,24 @@ namespace Neelam
 		// so the manager must not (and does not) delete it.
 		this->triangleShader.SetName(vk::ShaderObject::Name::ColorByVertex);
 		vk::ShaderObjectNodeMan::Add(&this->triangleShader);
+
+		// ---- geometry -------------------------------------------------------
+		// The same triangle that used to be baked into the vertex shader, now
+		// in a real vertex buffer. World space, +Y up -- the camera's
+		// projection does the Vulkan Y flip (§16).
+		const vk::VertexPosColor verts[3] =
+		{
+			//   x      y     z        r     g     b
+			{  0.0f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f },		// top    - red
+			{  0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f },		// b-right- green
+			{ -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f }		// b-left - blue
+		};
+
+		const uint32_t indices[3] = { 0, 1, 2 };
+
+		this->triangleVerts.Create(verts, sizeof(verts), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		this->triangleIndices.Create(indices, sizeof(indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+		this->triangleIndexCount = 3;
 
 		// Start the background watcher on the shader folder. From here on,
 		// saving a .hlsl posts a compile to the FILE thread, which compiles the
@@ -142,6 +163,11 @@ namespace Neelam
 		this->shaderWatcher.Stop();
 		this->triangleShader.Destroy();
 
+		// Before VulkanAllocator is destroyed (Engine::Shutdown) -- VMA asserts
+		// on any allocation still live at vmaDestroyAllocator (§13).
+		this->triangleVerts.Destroy();
+		this->triangleIndices.Destroy();
+
 		// Nodes only -- ShaderObjectNode BORROWS its technique (triangleShader
 		// is a member of this Game), so nothing here deletes a ShaderObject.
 		//
@@ -177,15 +203,14 @@ namespace Neelam
 	//-----------------------------------------------------------------
 	void Game::Render()
 	{
-		// The active 3D camera supplies viewport + scissor for the frame.
-		//
-		// NOTE: its view/proj matrices are NOT consumed yet -- the triangle is
-		// still built from SV_VertexID in the vertex shader with no transform, so
-		// there is nothing to multiply them into. Feeding getViewMatrix() /
-		// getProjMatrix() to the shader needs a push constant or UBO + a pipeline
-		// layout, which lands with the vertex/index buffer work.
+		// Camera supplies viewport/scissor + the viewProj push constant; the
+		// buffers supply the geometry. Later this becomes a draw list / scene
+		// graph walk instead of one hard-coded technique + mesh.
 		this->graphicsPipeline.Render(this->triangleShader,
-									  CameraNodeMan::GetCurrent(Camera::Type::PERSPECTIVE_3D));
+									  CameraNodeMan::GetCurrent(Camera::Type::PERSPECTIVE_3D),
+									  &this->triangleVerts,
+									  &this->triangleIndices,
+									  this->triangleIndexCount);
 	}
 }
 

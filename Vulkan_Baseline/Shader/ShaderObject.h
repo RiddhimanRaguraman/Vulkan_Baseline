@@ -28,10 +28,15 @@ namespace Neelam::vk
 	// uses mul(vector, matrix) -- see ColorByVertex.vs.hlsl. Get that wrong and
 	// every matrix silently arrives transposed.
 	//-----------------------------------------------------------------
+	// world is PER OBJECT, viewProj is PER FRAME. view*proj is premultiplied on
+	// the CPU rather than sent as two matrices: Azul is row-vector, so
+	// clip = v * world * (view * proj) associates correctly, and it buys back
+	// the 64 bytes that make a world matrix fit inside the 128-byte guarantee.
+	// Today world is identity; it becomes per-draw with the scene graph.
 	struct ShaderMatrices
 	{
-		Azul::Mat4 view;
-		Azul::Mat4 proj;
+		Azul::Mat4 world;
+		Azul::Mat4 viewProj;
 	};
 
 	static_assert(sizeof(ShaderMatrices) == 128,
@@ -134,6 +139,16 @@ namespace Neelam::vk
 		// Source .hlsl files, for the watcher to poll. Derived supplies these.
 		virtual const char *GetVertexPath() const = 0;
 		virtual const char *GetPixelPath() const  = 0;
+
+		//-----------------------------------------------------------------
+		// Vertex format. Baked into the pipeline, so it belongs to the
+		// technique -- a derived class describes the layout its .hlsl expects.
+		//
+		// Default is NO vertex input, which is what a shader that builds its
+		// own positions from SV_VertexID needs. Override BOTH or neither.
+		//-----------------------------------------------------------------
+		virtual uint32_t GetVertexBindings(const VkVertexInputBindingDescription **ppOut) const;
+		virtual uint32_t GetVertexAttributes(const VkVertexInputAttributeDescription **ppOut) const;
 
 	protected:
 		// Data

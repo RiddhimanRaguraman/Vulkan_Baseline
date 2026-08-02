@@ -101,7 +101,9 @@ namespace Neelam::vk
 	//-----------------------------------------------------------------
 	// The frame.
 	//-----------------------------------------------------------------
-	void GraphicsPipeline::Render(const ShaderObject &shader, Camera *pCamera)
+	void GraphicsPipeline::Render(const ShaderObject &shader, Camera *pCamera,
+								  const GpuBuffer *pVertex, const GpuBuffer *pIndex,
+								  uint32_t indexCount)
 	{
 		const uint32_t frameResIndex = (uint32_t)(this->privFrameIndex % MaxFramesInFlight);
 		const uint64_t signalValue   = this->privNextSignalValue++;
@@ -245,19 +247,40 @@ namespace Neelam::vk
 		// frame's push constants are gone. Identity with no camera, which draws
 		// the raw world-space positions as if they were already in clip space.
 		ShaderMatrices matrices;
+
+		// Identity for now -- world becomes per-draw with the scene graph.
+		matrices.world.set(Azul::Identity);
+
 		if (pCamera != nullptr)
 		{
-			matrices.view = pCamera->getViewMatrix();
-			matrices.proj = pCamera->getProjMatrix();
+			// Premultiplied here rather than sent as two matrices: Azul is
+			// row-vector, so clip = v * world * (view * proj) associates
+			// correctly, and it frees the 64 bytes that let `world` fit inside
+			// the 128-byte push-constant guarantee.
+			matrices.viewProj = pCamera->getViewMatrix() * pCamera->getProjMatrix();
 		}
 		else
 		{
-			matrices.view.set(Azul::Identity);
-			matrices.proj.set(Azul::Identity);
+			matrices.viewProj.set(Azul::Identity);
 		}
+
 		shader.SetMatrices(res.commandBuffer, matrices);
 
-		vkCmdDraw(res.commandBuffer, 3, 1, 0, 0);
+		if (pVertex != nullptr && pIndex != nullptr)
+		{
+			VkBuffer     vertexBuffers[1] = { pVertex->GetBuffer() };
+			VkDeviceSize offsets[1]       = { 0 };
+
+			vkCmdBindVertexBuffers(res.commandBuffer, 0, 1, vertexBuffers, offsets);
+			vkCmdBindIndexBuffer(res.commandBuffer, pIndex->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
+
+			vkCmdDrawIndexed(res.commandBuffer, indexCount, 1, 0, 0, 0);
+		}
+		else
+		{
+			// No geometry supplied -- the old SV_VertexID path.
+			vkCmdDraw(res.commandBuffer, 3, 1, 0, 0);
+		}
 
 		vkCmdEndRendering(res.commandBuffer);
 

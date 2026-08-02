@@ -28,7 +28,11 @@ namespace Neelam
         // comparison node stays around for lifetime of manager
         this->poNodeCompare = new CameraNode();
         // ensure compare node has a valid Camera so SetName/Compare are safe
-        Camera* pCmpCam = new Camera(Camera::Type::PERSPECTIVE_3D); // Default to something valid
+        // CameraNull, not an arbitrary perspective camera -- this node only
+        // ever carries a NAME for baseFind() to compare against, and the
+        // null-object says so. (Heap, not CameraNull::Instance(): CameraNode
+        // deletes the Camera it holds, and the singleton must not be deleted.)
+        Camera* pCmpCam = new CameraNull();
         this->poNodeCompare->Set(Camera::Name::NullCamera, pCmpCam);
     }
 

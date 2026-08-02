@@ -54,6 +54,12 @@ namespace Neelam
 		vk::ShaderObject_ColorByVertex triangleShader;
 		ShaderWatcher                  shaderWatcher;
 
+		// Real geometry, replacing the SV_VertexID triangle. Both are VMA
+		// allocations, so they show up in the leak report if leaked (§11).
+		vk::GpuBuffer                  triangleVerts;
+		vk::GpuBuffer                  triangleIndices;
+		uint32_t                       triangleIndexCount;
+
 		// Last extent the cameras were sized against, so the sync above only
 		// runs on an actual resize instead of every frame.
 		uint32_t privCamWidth;
