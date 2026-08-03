@@ -96,9 +96,7 @@ namespace Neelam
 		virtual void Render()                = 0;
 
 		//-----------------------------------------------------------------
-		// Infrastructure owned by composition. Protected so a derived Game
-		// (and later a device/swapchain built here) can reach the instance
-		// and surface.
+		// Vulkan Objects
 		//-----------------------------------------------------------------
 		vk::Window			 window;
 		vk::Instance		 instance;
@@ -107,33 +105,16 @@ namespace Neelam
 		vk::QueueFamily		 queueFamily;
 		vk::LogicalDevice	 logicalDevice;
 		vk::Swapchain        swapchain;
-		vk::GraphicsPipeline graphicsPipeline;	// the frame loop; Game::Render drives it
+		vk::GraphicsPipeline graphicsPipeline;	
 
 	private:
-		// Rebuild the swapchain in place at the window's current client size
-		// (called when the graphics pipeline reports it went out of date).
 		void privRecreateSwapchain();
-
-		// Engine-thread side of the actor model: pop commands posted by worker
-		// threads and Execute() them HERE, where Vulkan calls are legal (§9).
-		// Lives in Engine, not Game, so every Game gets it without asking.
 		void privDrainCommands();
 
-		// The async-load actor. Engine owns it so its lifetime brackets every
-		// LoadContent/UnloadContent, and so a hosted (WPF) Game gets it too.
 		FileThread      privFileThread;
-
 		Azul::AnimTimer privFrameTimer;
 		bool            privInitialized;
-
-		// dt clamp: stops the delta exploding when execution is paused on a
-		// breakpoint (matches the DX11 start point's maxTimeStep).
 		static const float privMaxTimeStep;
-
-		// Cap on commands executed per frame. Bounded so a flood of posts can
-		// never stall a frame -- the leftovers just run next frame. (The audio
-		// engine this came from pops exactly ONE per update, which silently
-		// caps throughput at one message per frame; §18.)
 		static const uint32_t privMaxCommandsPerFrame = 8;
 	};
 }

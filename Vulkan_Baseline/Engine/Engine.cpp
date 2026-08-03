@@ -3,15 +3,10 @@
 //-----------------------------------------------------------------
 
 #include "Engine.h"
-
-// CircularData only FORWARD-declares Command (it stores pointers), so the full
-// definition is needed here to call Execute() through one.
 #include "Command.h"
 
 namespace Neelam
 {
-	// 1/30s. If a frame takes longer than this (e.g. stopped on a breakpoint),
-	// the delta is capped here so nothing teleports on the next Update.
 	const float Engine::privMaxTimeStep = 1.0f / 30.0f;
 
 	Engine::Engine()
@@ -33,8 +28,6 @@ namespace Neelam
 	//-----------------------------------------------------------------
 	void Engine::Initialize(HWND hParentWnd)
 	{
-		// Window: a child inside the editor if a parent HWND was handed in,
-		// otherwise a standalone top-level window.
 		if (hParentWnd != nullptr)
 		{
 			this->window.CreateChild(hParentWnd, 1280, 720);
@@ -44,63 +37,40 @@ namespace Neelam
 			this->window.Create("Neelam Engine", 1280, 720);
 		}
 
-		// Vulkan bring-up. vkAssert inside these asserts + exits the process on
-		// a failed VkResult, so there is no status to branch on here.
+		// Vulkan Graphics pipeline
 		this->instance.Create("Neelam Engine");
+
 		this->surface.Create(this->instance.GetInstance(),
 							 this->window.GetModule(),
 							 this->window.GetHandle());
 
-		// Pick the GPU. Needs the surface too, so it can verify the surface
-		// supports the format the swapchain will later request.
 		this->physicalDevice.Create(this->instance.GetInstance(),
 									this->surface.GetSurface());
 
-		// Find the graphics+present queue family index on that GPU. This is a
-		// selection only -- the actual VkQueue is obtained after the logical
-		// device exists (vkGetDeviceQueue), just below.
 		this->queueFamily.Create(this->physicalDevice.GetPhysicalDevice(),
 								 this->surface.GetSurface());
 
-		// Create the logical device: register the graphics+present queue, then
-		// build. After this, GetQueue(...) hands back the real VkQueue.
 		this->logicalDevice.Add(this->queueFamily.GetGraphicsFamilyIndex());
 		this->logicalDevice.Create(this->physicalDevice.GetPhysicalDevice());
 
-		// VMA memory allocator -- built from instance + GPU + device. Must come
-		// after the device (volk's device pointers are loaded by now). It is a
-		// framework singleton, so there is no member to own: the Engine only
-		// decides WHEN it is built and torn down.
 		vk::VulkanAllocator::Create(this->instance.GetInstance(),
 									this->physicalDevice.GetPhysicalDevice(),
 									this->logicalDevice.GetDevice());
 
-		// Swapchain: the images we render into and present. Depth buffer is
-		// allocated through VMA, so this comes after the allocator. 1280x720 is
-		// a hint -- the surface's currentExtent decides the real size.
 		this->swapchain.Create(this->physicalDevice.GetPhysicalDevice(),
 							   this->logicalDevice.GetDevice(),
 							   this->surface.GetSurface(),
 							   vk::VulkanAllocator::Get(),
 							   1280, 720);
 
-		// The frame loop: command buffers + sync, drawing into the swapchain.
 		this->graphicsPipeline.Create(this->logicalDevice.GetDevice(),
 									  this->logicalDevice.GetQueue(this->queueFamily.GetGraphicsFamilyIndex()),
 									  this->queueFamily.GetGraphicsFamilyIndex(),
 									  &this->swapchain);
 
-		// Command inboxes. Must exist BEFORE LoadContent, because that is where
-		// the game starts its worker threads (the ShaderWatcher) and they post
-		// as soon as they are running.
+		// Command inboxes. 
 		QueueMan::Create();
 
-		// The async worker. Started after the inboxes exist so it always has a
-		// queue to block on.
-		//
-		// The Engine owns the THREAD; it does not own the technique registry --
-		// ShaderObjects are content, so Game::LoadContent creates and destroys
-		// ShaderObjectNodeMan, same as it does CameraNodeMan.
 		this->privFileThread.Start();
 
 		// Hand off to the game to load its content.
@@ -119,7 +89,6 @@ namespace Neelam
 	//-----------------------------------------------------------------
 	void Engine::Tic()
 	{
-		// Seconds elapsed since the previous Tic().
 		const Azul::AnimTime elapsed = this->privFrameTimer.Toc();
 		this->privFrameTimer.Tic();
 
