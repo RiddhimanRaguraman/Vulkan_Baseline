@@ -55,7 +55,7 @@ namespace Neelam
 		ShaderWatcher                  shaderWatcher;
 
 		// Real geometry, replacing the SV_VertexID triangle. Both are VMA
-		// allocations, so they show up in the leak report if leaked (§11).
+		// allocations, so they show up in the leak report if leaked.
 		vk::GpuBuffer                  triangleVerts;
 		vk::GpuBuffer                  triangleIndices;
 		uint32_t                       triangleIndexCount;

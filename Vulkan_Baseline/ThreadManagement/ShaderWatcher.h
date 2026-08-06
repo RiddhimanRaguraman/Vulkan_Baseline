@@ -19,15 +19,13 @@
 //   Engine   vkCreateShaderModule + pipeline rebuild -- the only Vulkan step
 //
 // The split is the point: the compile costs tens of milliseconds and used to
-// stall a frame, while ALL Vulkan work belongs to the engine thread (§9). This
+// stall a frame, while ALL Vulkan work belongs to the engine thread. This
 // thread does neither -- it only detects and posts.
 //
-// DETECTION IS OS-DRIVEN, NOT POLLED. It blocks in WaitForMultipleObjects on
-// {change-notification, quit-event}, so an idle watcher costs exactly zero CPU
-// and a save is seen immediately -- where the old version woke 4x/second to
-// stat the folder and could be up to 250ms late. Timestamps are still compared,
-// but only to DEDUPE: editors commonly write a file two or three times per
-// save, and the notification fires for each.
+// Detection is OS-driven, not polled: it blocks in WaitForMultipleObjects on
+// {change-notification, quit-event}, so an idle watcher costs no CPU and a save
+// is seen immediately. Timestamps are still compared, but only to DEDUPE --
+// editors commonly write a file two or three times per save.
 //
 // Namespace is Neelam, not Neelam::vk: threading plumbing, not a Vulkan object.
 //---------------------------------------------------------------------------
@@ -42,10 +40,15 @@ namespace Neelam
 		ShaderWatcher &operator = (const ShaderWatcher &) = delete;
 		~ShaderWatcher();
 
-		// Launch the watcher thread on pDir (watches *.hlsl there). pShader is
-		// the technique a change should rebuild -- only its NAME and its two
-		// immutable source paths are read, and only on this thread.
-		void Start(const char *pDir, vk::ShaderObject *pShader);
+		// Launch the watcher on the folder pShader's sources live in -- the
+		// directory is DERIVED from GetVertexPath() rather than passed in.
+		//
+		// It used to take the folder as a second argument, which meant the same
+		// path existed as a literal in two places; moving the .hlsl folder
+		// updated one and not the other, and the watcher silently died with
+		// "hot reload OFF" because the folder no longer existed. One source of
+		// truth now: the technique's own path.
+		void Start(vk::ShaderObject *pShader);
 
 		// Signals the quit event, wakes the blocked wait, joins. Safe to call
 		// more than once.

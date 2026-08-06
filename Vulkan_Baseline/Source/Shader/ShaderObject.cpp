@@ -45,7 +45,7 @@ namespace Neelam::vk
 	//-----------------------------------------------------------------
 	// Engine-thread half of the async hot-reload. The FileThread already did
 	// the disk read + DXC compile; all that is left is the Vulkan work, which
-	// may only happen here (§9).
+	// may only happen here.
 	//-----------------------------------------------------------------
 	void ShaderObject::ReloadFromBlobs(IDxcBlob *pVertexSpirv, IDxcBlob *pPixelSpirv)
 	{
@@ -93,20 +93,6 @@ namespace Neelam::vk
 		Debug::out("ShaderObject: pipeline built\n");
 	}
 
-	void ShaderObject::Reload()
-	{
-		// No in-flight work may be using the pipeline we are about to replace.
-		vkDeviceWaitIdle(this->privDevice);
-
-		// Recompile both. Each keeps its last-good module on failure.
-		this->vertexShader.Reload();
-		this->pixelShader.Reload();
-
-		// Rebuild from the (possibly new) modules.
-		this->privBuildPipeline();
-
-		Debug::out("ShaderObject: reloaded + pipeline rebuilt\n");
-	}
 
 	void ShaderObject::SetActive(VkCommandBuffer cmd) const
 	{
@@ -137,16 +123,11 @@ namespace Neelam::vk
 	}
 
 	//-----------------------------------------------------------------
-	// No descriptor sets yet -- but one PUSH CONSTANT range for the camera's
-	// view + proj matrices (ShaderMatrices, 128 bytes, vertex stage only).
+	// One push-constant range for the camera matrices (128 bytes, vertex stage).
+	// It must match the HLSL block or pipeline creation fails validation.
 	//
-	// The range must be declared here because the layout is what the shader's
-	// push-constant block is validated against; a mismatch between this and the
-	// HLSL block is a validation error, not a silent wrong result.
-	//
-	// Built once in Create() and NOT rebuilt by Reload(), so the layout survives
-	// shader hot-reload -- which is what lets an edited .hlsl keep the same
-	// push-constant contract.
+	// Built once in Create() and never rebuilt, so a hot-reloaded .hlsl keeps the
+	// same push-constant contract.
 	//-----------------------------------------------------------------
 	void ShaderObject::privBuildLayout()
 	{

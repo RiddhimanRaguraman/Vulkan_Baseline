@@ -44,10 +44,10 @@ namespace Neelam::vk
 		this->privName = ShaderObject::Name::NOT_INITIALIZED;
 	}
 
+	// char*, not const char*, to match the Azul::DLink override it implements.
+	// Returns string literals, so there is no shared buffer to race on.
 	char *ShaderObjectNode::GetName()
 	{
-		static char pTmp[128];
-
 		const char *pName = "ShaderObject::<unknown>";
 
 		switch (this->privName)
@@ -58,8 +58,7 @@ namespace Neelam::vk
 		default:									assert(false);								break;
 		}
 
-		strcpy_s(pTmp, 128, pName);
-		return pTmp;
+		return (char *)pName;
 	}
 
 	ShaderObject::Name ShaderObjectNode::GetShaderName() const

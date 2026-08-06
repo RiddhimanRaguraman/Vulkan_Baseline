@@ -73,6 +73,13 @@ namespace Neelam::vk
 		bool IsSwapchainStale() const;
 		void ClearSwapchainStale();
 
+		// VK_ERROR_DEVICE_LOST was reported by acquire, submit or present.
+		//
+		// Not an application bug -- a TDR, driver update or GPU reset produces it.
+		// Every device-dependent object is invalid afterwards, so the frame loop
+		// must stop. Engine::Tic checks this and starts a normal shutdown.
+		bool IsDeviceLost() const;
+
 		// The frame's clear color. Defaults to a BUILD-DIFFERENTIATING color
 		// (LightGray in Debug, Wheat in Release) so you can tell which build is
 		// running at a glance. Call this to override it.
@@ -106,6 +113,7 @@ namespace Neelam::vk
 		uint64_t    privNextSignalValue;
 
 		bool        privSwapchainStale;
+		bool        privDeviceLost;
 
 		Color       privClearColor;		// build-differentiating default (see .cpp)
 	};

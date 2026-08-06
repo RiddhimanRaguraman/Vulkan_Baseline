@@ -4,7 +4,7 @@
 
 #ifndef CAMERA_NODE_H
 #define CAMERA_NODE_H
-// PORT: EngineDLLInterface.h / AZUL_ENGINE_LIBRARY_API dropped -- app source, not a DLL export.
+// EngineDLLInterface.h / AZUL_ENGINE_LIBRARY_API dropped -- app source, not a DLL export.
 
 #include "DLink.h"
 #include "Camera.h"

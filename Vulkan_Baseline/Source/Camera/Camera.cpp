@@ -46,24 +46,20 @@ namespace Neelam
 		return this->camType;
 	}
 
-	char *Camera::GetName() const
+	const char *Camera::GetName() const
 	{
-		static char pTmp[128];
-
-		const char *pName = "Camera::<unknown>";
-
 		switch (this->name)
 		{
-		case Camera::Name::CAMERA_0:			pName = "Camera::CAMERA_0";			break;
-		case Camera::Name::CAMERA_1:			pName = "Camera::CAMERA_1";			break;
-		case Camera::Name::CAMERA_2:			pName = "Camera::CAMERA_2";			break;
-		case Camera::Name::NOT_INITIALIZED:		pName = "Camera::NOT_INITIALIZED";	break;
-		case Camera::Name::NullCamera:			pName = "Camera::NullCamera";		break;
-		default:								assert(false);						break;
+		case Camera::Name::CAMERA_0:			return "Camera::CAMERA_0";
+		case Camera::Name::CAMERA_1:			return "Camera::CAMERA_1";
+		case Camera::Name::CAMERA_2:			return "Camera::CAMERA_2";
+		case Camera::Name::NOT_INITIALIZED:		return "Camera::NOT_INITIALIZED";
+		case Camera::Name::NullCamera:			return "Camera::NullCamera";
+		default:								break;
 		}
 
-		strcpy_s(pTmp, 128, pName);
-		return pTmp;
+		assert(false);
+		return "Camera::<unknown>";
 	}
 	void Camera::SetName(Camera::Name inName)
 	{
@@ -111,10 +107,8 @@ namespace Neelam
 		return this->viewport_height;
 	}
 
-	// PORT: stores only. The DX11 version ended with privSetViewState(), which
-	// pushed the viewport to the immediate context the moment you called this.
-	// Vulkan has no immediate context -- there is nothing to push to outside of
-	// command-buffer recording -- so the apply moved to SetActive().
+	// Stores only. Vulkan has no immediate context, so the viewport is applied
+	// during command recording -- see SetActive().
 	void Camera::setViewport(const int inX, const int inY, const int width, const int height)
 	{
 		this->viewport_x = inX;
@@ -123,15 +117,9 @@ namespace Neelam
 		this->viewport_height = height;
 	};
 
-	// PORT: replaces privSetViewState() / RSSetViewports(1, &tmp).
-	//
-	// VkViewport maps 1:1 onto D3D11_VIEWPORT -- including MinDepth/MaxDepth 0..1,
-	// because Vulkan's clip-space Z is [0,1] exactly like D3D's. Vulkan additionally
-	// needs a SCISSOR: D3D11 defaults to "no clipping" when none is set, Vulkan
-	// requires one per viewport, so it is set here to match the full viewport.
-	//
-	// Both are declared VK_DYNAMIC_STATE in the pipeline (see ShaderObject), which
-	// is what lets a camera set them per frame without rebuilding the pipeline.
+	// Records this camera's viewport + scissor into the command buffer. Both are
+	// dynamic state in the pipeline, so a camera sets them per frame without a
+	// rebuild. Vulkan requires a scissor; it matches the full viewport here.
 	void Camera::SetActive(VkCommandBuffer cmd) const
 	{
 		VkViewport viewport = {};
@@ -153,15 +141,8 @@ namespace Neelam
 		vkCmdSetScissor(cmd, 0, 1, &scissor);
 	};
 
-	// Goal, calculate the near height / width, same for far plane
-	//
-	// PORT/BUGFIX (not a DirectX issue -- it was wrong in the original):
-	//   setPerspective() already stores fovy in RADIANS (fovy = MATH_PI_180 * Fovy),
-	//   and privUpdateProjectionMatrix() correctly uses tanf(fovy/2). This function
-	//   was converting a second time -- tanf((fovy * MATH_PI / 180) * 0.5f) -- which
-	//   made every plane height ~57x too small. The frustum verts and therefore the
-	//   collision normals were all wrong; the projection matrix was unaffected,
-	//   which is why it never showed up on screen. Now matches the projection.
+	// Near/far plane height + width. fovy is already in radians (setPerspective
+	// converts it), so there is no second degree-to-radian conversion here.
 	void Camera::privCalcPlaneHeightWidth(void)
 	{
 		this->near_height = 2.0f * tanf(this->fovy * 0.5f) * this->nearDist;
@@ -252,7 +233,7 @@ namespace Neelam
 			this->projMatrix[Azul::m3] = 0.0f;
 
 			this->projMatrix[m4] = 0.0f;
-			// PORT: NEGATED for Vulkan. Vulkan's NDC has +Y pointing DOWN; D3D
+			// NEGATED for Vulkan. Vulkan's NDC has +Y pointing DOWN; D3D
 			// (and GL) have +Y UP. Without this every scene renders vertically
 			// mirrored. Flipping the projection is chosen over the other common
 			// fix -- a negative-height VkViewport -- because that would also flip
@@ -275,7 +256,7 @@ namespace Neelam
 			// Converting from OpenGL-style NDC of [-1,1] to DX's [0,1].  See note: https://anteru.net/blog/2011/12/27/1830/
 			// (Note: NDCConvert should be precomputed once and stored for reuse)
 			//
-			// PORT: KEPT AS-IS, deliberately. This is the piece that looks like it
+			// KEPT AS-IS, deliberately. This is the piece that looks like it
 			// must change and does not -- Vulkan's clip-space Z is [0,1], the same
 			// as D3D (it is OpenGL that is the odd one out at [-1,1]). Deleting it
 			// would put half the depth range behind the near plane.
@@ -292,7 +273,7 @@ namespace Neelam
 			this->projMatrix[m3] = 0.0f;
 
 			this->projMatrix[m4] = 0.0f;
-			// PORT: NEGATED for Vulkan's Y-down NDC, same reason as the
+			// NEGATED for Vulkan's Y-down NDC, same reason as the
 			// perspective branch above. The 2D/ortho camera needs it too, or
 			// sprites and UI come out upside down.
 			this->projMatrix[m5] = -2.0f / (yMax - yMin);
@@ -339,13 +320,9 @@ namespace Neelam
 		this->viewMatrix[m15] = 1.0f;
 	};
 
-	// Update everything (make sure it's consistent)
-	//
-	// ADDED -- dirty gate. CameraNodeMan::Update() calls this on every camera
-	// every frame. The body below is 8 frustum verts, 6 cross products with
-	// normalizes, and two full matrix rebuilds; running it for a camera that
-	// has not moved is pure waste, and it was the largest per-frame cost in
-	// Game::Update. Every mutator sets privDirty (see Camera.h).
+	// Rebuild the frustum + matrices. Skipped entirely when nothing has changed:
+	// this is 8 frustum verts, 6 cross products and two matrices, and it runs for
+	// every camera every frame. Every mutator sets privDirty.
 	void Camera::updateCamera(void)
 	{
 		if (!this->privDirty)

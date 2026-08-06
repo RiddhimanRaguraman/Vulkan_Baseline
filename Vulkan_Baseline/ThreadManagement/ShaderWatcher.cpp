@@ -22,13 +22,27 @@ namespace Neelam
 		this->Stop();
 	}
 
-	void ShaderWatcher::Start(const char *pDir, vk::ShaderObject *pShader)
+	void ShaderWatcher::Start(vk::ShaderObject *pShader)
 	{
-		assert(pDir);
 		assert(pShader);
 
-		strcpy_s(this->privDir, sizeof(this->privDir), pDir);
 		this->poShader = pShader;
+
+		// Derive the folder from the technique's own vertex-shader path: copy
+		// it, then cut at the last separator. One source of truth -- move the
+		// .hlsl folder and this follows automatically.
+		strcpy_s(this->privDir, sizeof(this->privDir), pShader->GetVertexPath());
+
+		char *pLastSlash = strrchr(this->privDir, '\\');
+		if (pLastSlash == nullptr)
+		{
+			pLastSlash = strrchr(this->privDir, '/');
+		}
+
+		// A bare filename with no directory would leave privDir as the file
+		// itself, and FindFirstChangeNotification would fail on it.
+		assert(pLastSlash != nullptr);
+		*pLastSlash = '\0';
 
 		// Baseline: whatever is newest right now is "already seen", so we only
 		// fire on edits made AFTER Start().
@@ -140,7 +154,7 @@ namespace Neelam
 			//
 			// Carries the shader's NAME and its two source paths BY VALUE --
 			// never a ShaderObject*, because the engine thread may destroy the
-			// technique while this is in flight (§18).
+			// technique while this is in flight.
 			Command *pCmd = new File_CompileShader_Cmd(
 				this->poShader->GetName(),
 				this->poShader->GetVertexPath(),

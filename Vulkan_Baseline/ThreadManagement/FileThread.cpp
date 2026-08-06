@@ -40,7 +40,7 @@ namespace Neelam
 		this->privThread.join();
 
 		// Anything still queued never ran, so its Execute() (which would have
-		// deleted it) never happened. Drain or it is a tracked leak (§13).
+		// deleted it) never happened. Drain or it is a tracked leak.
 		CircularData *pInbox = QueueMan::GetFileInQueue();
 		Command      *pCmd   = nullptr;
 		int           count  = 0;

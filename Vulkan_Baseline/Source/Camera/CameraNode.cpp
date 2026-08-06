@@ -46,15 +46,18 @@ namespace Neelam
         this->poCamera = nullptr;
     }
 
+    // char*, not const char*, to match the Azul::DLink override it implements.
+    // The cast is safe: Camera::GetName returns a string literal.
     char *CameraNode::GetName()
     {
-        char *pName = nullptr;
+        const char *pName = "CameraNode::<empty>";
+
         if(this->poCamera)
         {
             pName = this->poCamera->GetName();
         }
 
-        return pName;
+        return (char *)pName;
     }
 
     void CameraNode::Wash()
@@ -72,7 +75,7 @@ namespace Neelam
         if(this->poCamera)
         {
             Debug::out("      Camera(%p) \n", this->poCamera);
-            // PORT: was StringMe(this->poCamera->name) -- Camera::GetName() now
+            // was StringMe(this->poCamera->name) -- Camera::GetName() now
             // does that switch itself, so StringThis.h is no longer needed.
             Debug::out("      Name: %s \n", this->poCamera->GetName());
         }

@@ -12,21 +12,12 @@ namespace Neelam
 	//-----------------------------------------------------------------------
 	// class QueueMan  (singleton)
 	//
-	// Owns one INBOX per consumer thread and routes commands into it. The
-	// inbox belongs to the CONSUMER, not the producer -- that is what lets any
-	// number of threads post to the engine without knowing anything about it.
-	//
-	// (The old ShaderWatcher mailbox had this backwards: the producer owned the
-	// queue, so only that one producer could ever feed the engine.)
-	//
-	// One inbox today -- the engine thread. Actors get added as they appear:
-	// SendFile / GetFileInQueue with the FileThread (§18 phase 3), and a game
-	// inbox with the engine/game split (phase 4). Queues are NOT created for
-	// threads that do not exist yet.
+	// Owns one INBOX per consumer thread and routes commands into it. The inbox
+	// belongs to the CONSUMER, so any number of threads can post to the engine
+	// without knowing anything about it.
 	//
 	// Lifetime is Engine::Initialize -> Engine::Shutdown, which brackets every
-	// worker thread: the watcher is started in Game::LoadContent and stopped in
-	// Game::UnloadContent, both inside that window.
+	// worker thread.
 	//-----------------------------------------------------------------------
 	class QueueMan
 	{
@@ -35,7 +26,7 @@ namespace Neelam
 
 		// Drains and DELETES anything still queued -- commands are heap
 		// allocated and their Execute() never ran, so this is the difference
-		// between a clean run and Memory Tracking: FAIL (§13).
+		// between a clean run and Memory Tracking: FAIL.
 		static void Destroy();
 
 		// Post to the engine thread. Returns false if the inbox is full, in
@@ -51,14 +42,9 @@ namespace Neelam
 		static CircularData *GetFileInQueue();
 
 		//-----------------------------------------------------------------
-		// File-thread sleep/wake. The CV lives here, next to the queue it
-		// guards, so FileThread does not have to own synchronization it does
-		// not otherwise need.
-		//
-		// Only the FILE thread gets this treatment: it is idle most of the
-		// time, so blocking saves a whole core. The ENGINE thread is never
-		// idle -- it renders every frame -- so it drains by polling and a CV
-		// would buy nothing (§18).
+		// File-thread sleep/wake. Only the file thread blocks: it is idle most of
+		// the time. The engine thread renders every frame, so it drains by polling
+		// and a condition variable would buy it nothing.
 		//-----------------------------------------------------------------
 		static void WaitForFile(const std::atomic<bool> &rRunning);
 		static void WakeFile();

@@ -5,7 +5,7 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
-// PORT: was a DX11 engine-DLL class (EngineDLLInterface.h + AZUL_ENGINE_LIBRARY_API).
+// was a DX11 engine-DLL class (EngineDLLInterface.h + AZUL_ENGINE_LIBRARY_API).
 // Here the camera is app source, not a DLL export, so both are gone.
 // Vulkan types (VkCommandBuffer, vkCmdSetViewport) come from the force-included
 // Framework.h -- see its VULKAN FRAMEWORK section.
@@ -46,13 +46,13 @@ namespace Neelam
 		void setOrthographic(const float xMin, const float xMax, const float yMin, const float yMax, const float zMin, const float zMax);
 
 		
-		// PORT: under DX11 this pushed the viewport straight to the immediate
+		// under DX11 this pushed the viewport straight to the immediate
 		// context (RSSetViewports). Vulkan has no immediate context -- viewport is
 		// DYNAMIC STATE recorded into a command buffer -- so this now only STORES
 		// the rectangle, and SetActive() below applies it during frame recording.
 		void setViewport(const int inX, const int inY, const int width, const int height);
 
-		// PORT: replaces privSetViewState()/RSSetViewports. Records this camera's
+		// replaces privSetViewState()/RSSetViewports. Records this camera's
 		// viewport + scissor into the command buffer. Mirrors the project's
 		// existing ShaderObject::SetActive(cmd) idiom.
 		void SetActive(VkCommandBuffer cmd) const;
@@ -79,14 +79,9 @@ namespace Neelam
 		// Why no SETS?  Pos,Dir,Up,LookAt, Right
 		//   They have to be adjust together in setOrientAndPosition()
 
-		// The DX11 original called these getFieldOfView/setFieldOfView, but both
-		// only ever touched aspectRatio -- the names were simply wrong. Renamed
-		// rather than kept, since nothing outside Camera ever called them.
-		// (setFieldOfView was byte-for-byte setAspectRatio, so it is gone.)
-		//
-		// Use these, not setPerspective(), to react to a window resize:
-		// setPerspective also rewrites fovy from degrees, which would stomp the
-		// Z/C zoom in CameraNodeMan::ProcessInput. Actual FOV is GetFovY/SetFovY.
+		// Aspect ratio only. Use these for a window resize rather than
+		// setPerspective(), which also rewrites fovy and would stomp the zoom.
+		// Actual field of view is GetFovY / SetFovY.
 		void getAspectRatio(float &Value) const;
 		void setAspectRatio(const float Value);
 
@@ -97,7 +92,9 @@ namespace Neelam
 
 		Camera::Type getType() const;
 
-		char *GetName() const;
+		// Returns a string literal, not a static buffer -- safe to call from any
+		// thread and safe to use twice in one printf.
+		const char *GetName() const;
 		void SetName(Camera::Name name);
 
 		// helper functions
@@ -123,7 +120,7 @@ namespace Neelam
 		}
 
 	private:  // methods should never be public
-		// PORT: privSetViewState() is gone -- see SetActive() above.
+		// privSetViewState() is gone -- see SetActive() above.
 		void privCalcPlaneHeightWidth(void);
 		void privCalcFrustumVerts(void);
 		void privCalcFrustumCollisionNormals(void);
@@ -204,20 +201,15 @@ namespace Neelam
 		int		viewport_width;
 		int		viewport_height;
 
-		// ADDED: updateCamera() rebuilds 8 frustum verts, 6 cross products with
-		// normalizes, and both matrices. That ran EVERY frame for EVERY camera
-		// whether or not anything had moved -- by far the largest per-frame cost
-		// in Game::Update. Every mutator sets this; updateCamera() early-outs
-		// when it is clear.
+		// Set by every mutator; updateCamera() early-outs when clear.
 		bool	privDirty;
 
 		// Name
 	public:
 		Camera::Name name;
 
-		// pad was [12]; privDirty above took one byte, so this drops to 11 to
-		// keep sizeof(Camera) unchanged. The class is Align16 and the padding
-		// is hand-balanced -- adjust the two together.
+		// Align16 with hand-balanced padding: privDirty above took one byte, so
+		// this dropped from 12 to 11. Adjust the two together.
 		char pad[11];
 	};
 

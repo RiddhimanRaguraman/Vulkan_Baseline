@@ -45,12 +45,12 @@ namespace Neelam::vk
 	// baked bytecode.
 	const char *ShaderObject_ColorByVertex::GetVertexPath() const
 	{
-		return SOLUTION_DIR "Vulkan_Baseline\\Shader\\hlsl\\ColorByVertex.vs.hlsl";
+		return SOLUTION_DIR "Vulkan_Baseline\\HLSL_Shaders\\ColorByVertex.vs.hlsl";
 	}
 
 	const char *ShaderObject_ColorByVertex::GetPixelPath() const
 	{
-		return SOLUTION_DIR "Vulkan_Baseline\\Shader\\hlsl\\ColorByVertex.ps.hlsl";
+		return SOLUTION_DIR "Vulkan_Baseline\\HLSL_Shaders\\ColorByVertex.ps.hlsl";
 	}
 }
 

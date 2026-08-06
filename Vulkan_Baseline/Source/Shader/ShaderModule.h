@@ -15,8 +15,9 @@
 // ONE VkShaderModule. It knows its source .hlsl path + stage, so it can:
 //   Create()  -- compile the file (DXC) and make the module. A broken shader
 //                at startup is fatal (assert + exit).
-//   Reload()  -- recompile from disk; on success swap in the new module, on
-//                failure KEEP the current one (hot-reload keep-last-good).
+//   CreateFromBlob() -- swap in SPIR-V the FileThread already compiled. This
+//                is the ONLY half of a hot-reload that touches Vulkan, which is
+//                why the compile can live on another thread and this cannot.
 //
 // A VkShaderModule is stage-agnostic in Vulkan (the stage is named at pipeline
 // time), so this is ONE parameterized class rather than separate VS/PS types.
@@ -34,8 +35,6 @@ namespace Neelam::vk
 
 		void Create(VkDevice device, const char *pFilePath, ShaderStage stage);
 
-		// Returns true if a NEW module was built and swapped in.
-		bool Reload();
 
 		// Same swap, but from SPIR-V the FileThread already compiled. This is
 		// the ONLY half of the reload that touches Vulkan, so it -- and not the

@@ -2172,7 +2172,7 @@ constexpr const char* MEMORY_TRACKING_ENABLE_STRING = "--> DISABLED <--";
 // ProcessBegin, and a DLL's static initializers run before the exe's -- so the
 // printer is always a lib DLL, which is in neither tier. It would honestly
 // report its own tiers and dishonestly look like a statement about the program.
-// Same trap as the VkLeak dump (see the tier gotcha in the build notes).
+// Same trap as the VkLeak dump.
 // The app prints its own tiers from Engine::Initialize instead.
 
 class MemTrace
@@ -5156,6 +5156,17 @@ static inline void vkAssertImpl(VkResult result, const char *file, int line) noe
 {
 	if (result < 0)
 	{
+		// Called out separately because it is NOT a bug in this code -- a TDR,
+		// driver update or GPU reset produces it, and chasing it as an app bug
+		// wastes an afternoon. The frame loop catches it at acquire/submit/
+		// present and shuts down cleanly; reaching HERE means it surfaced from
+		// some other call, which is worth knowing.
+		if (result == VK_ERROR_DEVICE_LOST)
+		{
+			Debug::out("*** VK_ERROR_DEVICE_LOST -- the GPU went away (TDR / driver "
+				"update / GPU reset). Not an application bug. ***\n");
+		}
+
 		// Print the raw code alongside the name so an enum the switch does not
 		// know yet is still identifiable from the log.
 		Debug::out("%s(%d): <double-click> \nvkAssert failed: %s (%d)\n",
@@ -5469,12 +5480,11 @@ namespace Neelam::vk
 		// plus a vkDestroyDevice validation line naming the undestroyed
 		// VkBuffer + VkDeviceMemory -- independent confirmation.
 		//
-		// It lives HERE so that testing the tracker never means editing engine
-		// code (the old version commented out a vmaDestroyImage in Swapchain).
-		// Nothing in the engine calls it. Delete the CALL SITE, not this.
+		// Lives here so testing the tracker never means editing engine code.
+		// Nothing in the engine calls it -- delete the CALL SITE, not this.
 		//
-		// DEDICATED_MEMORY forces its own VkDeviceMemory block, which is what
-		// guarantees the device-alloc callback fires and VkMemInsert records it.
+		// DEDICATED_MEMORY forces its own VkDeviceMemory block, which is what makes
+		// the device-alloc callback fire.
 		//---------------------------------------------------------------
 		static void LeakTest(VkDeviceSize bytes = 4 * 1024 * 1024)
 		{

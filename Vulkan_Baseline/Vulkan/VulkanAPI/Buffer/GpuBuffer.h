@@ -12,12 +12,10 @@ namespace Neelam::vk
 	//-----------------------------------------------------------------------
 	// struct VertexPosColor
 	//
-	// One vertex as the GPU sees it. Deliberately PLAIN FLOATS, not Azul::Vec3:
-	// Vec3 is Align16, so sizeof(Vec3) is 16 and a {Vec3,Vec3} vertex would be
-	// a 32-byte stride with 8 bytes of padding per field. This is 24, tight,
-	// and its offsets match the attribute descriptions in
-	// ShaderObject_ColorByVertex. Azul math types are for CPU-side SIMD work;
-	// GPU buffers want packed data.
+	// One vertex as the GPU sees it. Plain floats, not Azul::Vec3: Vec3 is
+	// Align16, so a {Vec3,Vec3} vertex would be a 32-byte stride with 8 bytes of
+	// padding per field. This is 24, packed, and its offsets match the attribute
+	// descriptions in ShaderObject_ColorByVertex.
 	//-----------------------------------------------------------------------
 	struct VertexPosColor
 	{
@@ -35,19 +33,14 @@ namespace Neelam::vk
 	// only difference is the usage flag, so this is one class rather than two
 	// near-identical ones.
 	//
-	// UPLOAD STRATEGY: host-visible and persistently MAPPED, written with a
-	// plain memcpy. No staging buffer, no transfer command buffer, no queue
-	// submit -- which is why this is ~80 lines instead of ~300.
+	// Host-visible and persistently MAPPED, written with a plain memcpy -- no
+	// staging buffer and no transfer command buffer.
 	//
-	// The tradeoff, stated plainly: on a discrete GPU this lives in host or BAR
-	// memory, so the GPU reads it across PCIe every draw. That is fine for a
-	// handful of verts and for anything the CPU rewrites often. Large STATIC
-	// geometry wants DEVICE_LOCAL plus a staging copy; that needs transfer
-	// infrastructure this engine does not have yet, and it is the natural
-	// upgrade once meshes get real.
+	// Tradeoff: on a discrete GPU the data is read across PCIe every draw. Fine
+	// for small or frequently-rewritten data; large STATIC geometry wants
+	// DEVICE_LOCAL plus a staging copy.
 	//
-	// Allocation goes through vk::VulkanAllocator, so every byte here is
-	// tracked and shows up in the leak report (§11).
+	// Allocation goes through vk::VulkanAllocator, so every byte is tracked.
 	//-----------------------------------------------------------------------
 	class GpuBuffer
 	{

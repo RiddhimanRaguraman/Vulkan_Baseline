@@ -286,10 +286,10 @@ end
 -- while the app additionally gets the thread + Vulkan frameworks -- from the
 -- same file, with no #define buried inside it.
 --
--- HEADERS ONLY. Framework/VulkanImpl.cpp is deliberately not listed here: shared
+-- Framework.h and nothing else. VulkanImpl.cpp is NOT a shared item: shared
 -- items are compiled by EVERY project that references this one, and the lib DLLs
--- have neither USE_VULKAN_FRAMEWORK nor the Vulkan SDK include path. The app
--- project lists that file itself.
+-- have neither USE_VULKAN_FRAMEWORK nor the Vulkan SDK include path. It lives in
+-- the app's own tree instead.
 --=============================================================================
 project "Framework"
 	kind     "SharedItems"
@@ -363,10 +363,9 @@ project "Vulkan_Baseline"
 	-- Vulkan tier -- see the defines block below.
 	links { "Framework" }
 
-	-- volk + VMA are compiled straight into the app via Framework/VulkanImpl.cpp
-	-- (listed above) -- no separate static lib. We do not link vulkan-1.lib
-	-- either: volk loads vulkan-1.dll itself at runtime (volkInitialize), so only
-	-- the SDK include path (added above) is needed for the headers.
+	-- volk + VMA are compiled straight into the app -- no separate static lib. We
+	-- do not link vulkan-1.lib either: volk loads vulkan-1.dll itself at runtime
+	-- (volkInitialize), so only the SDK include path is needed for the headers.
 	-- vkCreateInstance and friends resolve to volk's function pointers, which
 	-- VulkanImpl.cpp defines.
 

@@ -13,18 +13,12 @@
 // Execute() ON ITS OWN THREAD. That is the entire actor model -- no thread ever
 // touches another thread's data directly.
 //
-// OWNERSHIP -- the rule that keeps the leak tracker (§11) quiet:
-//   * The CONSUMER owns the command. Concrete Execute() bodies end with
-//     `delete this`.
-//   * If the post FAILS (inbox full -> QueueMan::Send* returns false) the
-//     command was never handed over, so the SENDER must delete it.
+// OWNERSHIP -- all three rules are required for a leak-free run:
+//   * The CONSUMER owns the command; Execute() ends with delete this.
+//   * If the post FAILS (inbox full), it was never handed over -- the SENDER
+//     deletes it.
 //   * Anything still queued at shutdown is never executed, so QueueMan::Destroy
 //     drains and deletes the remainder.
-// Miss any of the three and a clean run turns into Memory Tracking: FAIL.
-//
-// No Handle member yet. That arrives with the FileThread (§18 phase 3), where a
-// completion command can outlive the resource it names; nothing here outlives
-// anything, so carrying one now would be dead weight.
 //---------------------------------------------------------------------------
 
 namespace Neelam

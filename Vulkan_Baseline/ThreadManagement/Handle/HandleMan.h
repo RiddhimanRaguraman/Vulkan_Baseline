@@ -13,7 +13,7 @@ namespace Neelam
 	// class HandleMan  (singleton)
 	//
 	// The table behind Handle. One fixed array of {mutex, id} slots -- no
-	// allocation, no std::map (§2).
+	// allocation, no std::map.
 	//
 	// How the validity check works: a Handle stores {id, index}. The slot at
 	// `index` stores the id that currently owns it. Destroying the owner sets

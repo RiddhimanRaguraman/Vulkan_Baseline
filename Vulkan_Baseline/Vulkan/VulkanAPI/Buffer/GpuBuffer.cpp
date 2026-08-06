@@ -70,7 +70,7 @@ namespace Neelam::vk
 		if (this->privBuffer != VK_NULL_HANDLE)
 		{
 			// Frees the VkBuffer and its allocation together, and unmaps.
-			// Must happen before vmaDestroyAllocator (§13).
+			// Must happen before vmaDestroyAllocator.
 			vmaDestroyBuffer(VulkanAllocator::Get(), this->privBuffer, this->privAllocation);
 
 			this->privBuffer     = VK_NULL_HANDLE;

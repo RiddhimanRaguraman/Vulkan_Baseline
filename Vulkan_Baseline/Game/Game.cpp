@@ -34,7 +34,7 @@ namespace Neelam
 		// Technique registry. Content, so it lives here with CameraNodeMan --
 		// the Engine owns the FileThread but knows nothing about shaders.
 		// It is also how a cross-thread command resolves a ShaderObject::Name
-		// back to a live technique (§18).
+		// back to a live technique.
 		vk::ShaderObjectNodeMan::Create(4, 2);
 
 		// Build the triangle technique (compiles HLSL -> SPIR-V -> pipeline).
@@ -50,9 +50,7 @@ namespace Neelam
 		vk::ShaderObjectNodeMan::Add(&this->triangleShader);
 
 		// ---- geometry -------------------------------------------------------
-		// The same triangle that used to be baked into the vertex shader, now
-		// in a real vertex buffer. World space, +Y up -- the camera's
-		// projection does the Vulkan Y flip (§16).
+		// World space, +Y up -- the camera's projection does the Vulkan Y flip.
 		const vk::VertexPosColor verts[3] =
 		{
 			//   x      y     z        r     g     b
@@ -71,8 +69,7 @@ namespace Neelam
 		// saving a .hlsl posts a compile to the FILE thread, which compiles the
 		// SPIR-V off-frame and posts the result back to the engine thread to be
 		// swapped in. Game does not participate -- that is the actor split.
-		this->shaderWatcher.Start(SOLUTION_DIR "Vulkan_Baseline\\Shader\\hlsl",
-								  &this->triangleShader);
+		this->shaderWatcher.Start(&this->triangleShader);
 
 		// ---- cameras -------------------------------------------------------
 		// CameraNodeMan is a singleton manager over the Manager DLL's DLink list:
@@ -164,7 +161,7 @@ namespace Neelam
 		this->triangleShader.Destroy();
 
 		// Before VulkanAllocator is destroyed (Engine::Shutdown) -- VMA asserts
-		// on any allocation still live at vmaDestroyAllocator (§13).
+		// on any allocation still live at vmaDestroyAllocator.
 		this->triangleVerts.Destroy();
 		this->triangleIndices.Destroy();
 

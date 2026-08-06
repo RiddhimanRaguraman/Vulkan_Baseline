@@ -30,12 +30,34 @@ namespace Neelam::vk
 
 	void Swapchain::Create(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface,
 		VmaAllocator allocator, uint32_t width, uint32_t height,
-		VkFormat colorFormat, VkFormat depthFormat)
+		VkFormat colorFormat, VkFormat depthFormat, VkSwapchainKHR oldSwapchain)
 	{
 		this->privDevice      = device;
 		this->privAllocator   = allocator;
 		this->privColorFormat = colorFormat;
-		this->privDepthFormat = depthFormat;
+
+		// UNDEFINED means "you choose" (first-time creation). A concrete format
+		// means a caller asked for it -- Recreate passing back what was already
+		// picked -- so verify rather than silently re-pick something else.
+		if (depthFormat == VK_FORMAT_UNDEFINED)
+		{
+			this->privDepthFormat = Swapchain::privPickDepthFormat(physicalDevice);
+		}
+		else
+		{
+			VkFormatProperties props = {};
+			vkGetPhysicalDeviceFormatProperties(physicalDevice, depthFormat, &props);
+
+			if ((props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) == 0)
+			{
+				Debug::out("Swapchain: requested depth format %d unsupported as a depth attachment\n",
+					(int)depthFormat);
+				assert(false);
+				ExitProcess(1);
+			}
+
+			this->privDepthFormat = depthFormat;
+		}
 
 		// ---- surface capabilities: how many images, what size ----
 		VkSurfaceCapabilitiesKHR caps = {};
@@ -63,8 +85,21 @@ namespace Neelam::vk
 		VkSwapchainCreateInfoKHR swapInfo = {};
 		swapInfo.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 		swapInfo.surface          = surface;
-		swapInfo.minImageCount    = caps.minImageCount;
-		swapInfo.imageFormat      = colorFormat;
+		// minImageCount + 1, NOT minImageCount. Asking for the bare minimum (2
+		// on Windows) means vkAcquireNextImageKHR has to block until the
+		// presentation engine hands an image back -- which throttles the whole
+		// MaxFramesInFlight=2 timeline-pacing design down to one frame of
+		// overlap. One spare image is what lets the CPU actually run ahead.
+		//
+		// maxImageCount == 0 means "no limit", so it is only a clamp when set.
+		uint32_t desiredImageCount = caps.minImageCount + 1;
+		if (caps.maxImageCount > 0 && desiredImageCount > caps.maxImageCount)
+		{
+			desiredImageCount = caps.maxImageCount;
+		}
+
+		swapInfo.minImageCount    = desiredImageCount;
+		swapInfo.imageFormat      = this->privColorFormat;
 		swapInfo.imageColorSpace  = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 		swapInfo.imageExtent      = this->privExtent;
 		swapInfo.imageArrayLayers = 1;
@@ -74,7 +109,7 @@ namespace Neelam::vk
 		swapInfo.compositeAlpha   = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 		swapInfo.presentMode      = VK_PRESENT_MODE_FIFO_KHR;	// vsync, always supported
 		swapInfo.clipped          = VK_TRUE;
-		swapInfo.oldSwapchain     = VK_NULL_HANDLE;
+		swapInfo.oldSwapchain     = oldSwapchain;		// see Recreate()
 
 		VK_Try(vkCreateSwapchainKHR(device, &swapInfo, nullptr, &this->privSwapchain));
 
@@ -90,7 +125,7 @@ namespace Neelam::vk
 			viewInfo.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 			viewInfo.image                           = this->privImages[i];
 			viewInfo.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-			viewInfo.format                          = colorFormat;
+			viewInfo.format                          = this->privColorFormat;
 			viewInfo.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
 			viewInfo.subresourceRange.levelCount     = 1;
 			viewInfo.subresourceRange.layerCount     = 1;
@@ -107,7 +142,12 @@ namespace Neelam::vk
 		VkImageCreateInfo depthInfo = {};
 		depthInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		depthInfo.imageType     = VK_IMAGE_TYPE_2D;
-		depthInfo.format        = depthFormat;
+		// privDepthFormat, NOT the depthFormat parameter -- the parameter may
+		// still be VK_FORMAT_UNDEFINED ("you pick"), and the resolved format
+		// lives in the member. Reading the parameter here handed
+		// VK_FORMAT_UNDEFINED to vkCreateImage, which the driver turned into a
+		// divide-by-zero inside nvoglv64.dll.
+		depthInfo.format        = this->privDepthFormat;
 		depthInfo.extent.width  = this->privExtent.width;
 		depthInfo.extent.height = this->privExtent.height;
 		depthInfo.extent.depth  = 1;
@@ -130,7 +170,7 @@ namespace Neelam::vk
 		depthViewInfo.sType                       = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		depthViewInfo.image                       = this->privDepthImage;
 		depthViewInfo.viewType                    = VK_IMAGE_VIEW_TYPE_2D;
-		depthViewInfo.format                      = depthFormat;
+		depthViewInfo.format                      = this->privDepthFormat;
 		depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 		depthViewInfo.subresourceRange.levelCount = 1;
 		depthViewInfo.subresourceRange.layerCount = 1;
@@ -139,6 +179,76 @@ namespace Neelam::vk
 
 		Debug::out("Swapchain: created (%u images, %ux%u)\n",
 			this->privImageCount, this->privExtent.width, this->privExtent.height);
+	}
+
+	//-----------------------------------------------------------------
+	// Depth-only first, then the combined depth+stencil formats. Order is
+	// preference: D32_SFLOAT is the highest-precision depth-only format and
+	// costs no stencil bytes, so it wins when available.
+	//-----------------------------------------------------------------
+	VkFormat Swapchain::privPickDepthFormat(VkPhysicalDevice physicalDevice)
+	{
+		const VkFormat candidates[3] =
+		{
+			VK_FORMAT_D32_SFLOAT,
+			VK_FORMAT_D32_SFLOAT_S8_UINT,
+			VK_FORMAT_D24_UNORM_S8_UINT
+		};
+
+		for (uint32_t i = 0; i < 3; i++)
+		{
+			VkFormatProperties props = {};
+			vkGetPhysicalDeviceFormatProperties(physicalDevice, candidates[i], &props);
+
+			// OPTIMAL tiling, because that is what the depth image is created
+			// with (VK_IMAGE_TILING_OPTIMAL below).
+			if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
+			{
+				return candidates[i];
+			}
+		}
+
+		// No depth format at all is not a real GPU.
+		Debug::out("Swapchain: no supported depth-attachment format found\n");
+		assert(false);
+		ExitProcess(1);
+
+		return VK_FORMAT_UNDEFINED;
+	}
+
+	//-----------------------------------------------------------------
+	// Resize in place, new-before-old.
+	//
+	// The swapchain HANDLE is deliberately stashed and cleared before Destroy()
+	// runs, so Destroy tears down the views / semaphores / depth image but
+	// leaves the handle alone. That handle is then handed to the new
+	// vkCreateSwapchainKHR as oldSwapchain -- letting the driver recycle its
+	// images -- and only destroyed once the new one exists.
+	//
+	// Destroying the old semaphores here is safe because the caller has already
+	// made the device idle: vkQueuePresentKHR's semaphore wait is a QUEUE
+	// operation, so vkDeviceWaitIdle has completed it.
+	//-----------------------------------------------------------------
+	void Swapchain::Recreate(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface,
+		VmaAllocator allocator, uint32_t width, uint32_t height)
+	{
+		// Formats survive Destroy(), but read them first so the intent is clear.
+		const VkFormat colorFormat = this->privColorFormat;
+		const VkFormat depthFormat = this->privDepthFormat;
+
+		VkSwapchainKHR oldHandle = this->privSwapchain;
+		this->privSwapchain = VK_NULL_HANDLE;		// hide it from Destroy()
+
+		this->Destroy();
+
+		this->Create(physicalDevice, device, surface, allocator,
+			width, height, colorFormat, depthFormat, oldHandle);
+
+		// Retired and replaced -- now it can go.
+		if (oldHandle != VK_NULL_HANDLE)
+		{
+			vkDestroySwapchainKHR(device, oldHandle, nullptr);
+		}
 	}
 
 	void Swapchain::Destroy()

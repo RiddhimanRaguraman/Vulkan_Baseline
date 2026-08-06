@@ -17,7 +17,7 @@ namespace Neelam::vk
 	// Find a technique by ShaderObject::Name. Same ManBase/DLink shape as
 	// CameraNodeMan.
 	//
-	// THIS IS THE CROSS-THREAD SAFETY MECHANISM (§18). A command posted from
+	// THIS IS THE CROSS-THREAD SAFETY MECHANISM. A command posted from
 	// another thread carries a NAME, never a ShaderObject*. The engine thread
 	// calls Find() when the command finally executes: if the technique was
 	// destroyed in the meantime it is no longer registered, Find returns

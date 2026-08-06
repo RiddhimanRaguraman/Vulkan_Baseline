@@ -13,13 +13,10 @@
 // milliseconds of disk + DXC that used to stall a frame during hot-reload.
 //
 // It does no Vulkan. Work that needs the GPU is posted BACK to the engine
-// thread as a ShaderModulesReady_Cmd (§9, §18).
+// thread as a ShaderModulesReady_Cmd.
 //
-// Unlike the reference audio engine, this does NOT busy-spin on its queue --
-// that burns a core doing nothing. It blocks on a condition_variable and is
-// woken by QueueMan::SendFile, so an idle file thread costs zero CPU. This is
-// where a CV genuinely pays: the file thread IS idle most of the time, whereas
-// the engine thread never is (which is why the engine drains by polling).
+// Blocks on a condition variable rather than spinning, so an idle file thread
+// costs no CPU. Woken by QueueMan::SendFile.
 //---------------------------------------------------------------------------
 
 namespace Neelam

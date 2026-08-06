@@ -16,11 +16,11 @@ namespace Neelam::vk
 		  privFrameIndex(0),
 		  privNextSignalValue(0),
 		  privSwapchainStale(false),
+		  privDeviceLost(false),
 		  privClearColor{}
 	{
-		// Build-differentiating clear color: glance at the background and you
-		// know which build is running (matches the old Azul renderer's choice).
-		// Colors::* are Vec4s; Neelam::Color converts from Vec4.
+		// Build-differentiating clear color -- glance at the background and you know
+		// which build is running.
 #ifdef _DEBUG
 		this->privClearColor = Colors::LightGray;
 #else
@@ -43,6 +43,7 @@ namespace Neelam::vk
 		this->privFrameIndex      = 0;
 		this->privNextSignalValue = MaxFramesInFlight + 1;	// see the wait math in Render
 		this->privSwapchainStale  = false;
+		this->privDeviceLost      = false;
 
 		this->privCreateSync();
 		this->privCreateCommands();
@@ -105,10 +106,13 @@ namespace Neelam::vk
 								  const GpuBuffer *pVertex, const GpuBuffer *pIndex,
 								  uint32_t indexCount)
 	{
+		// Neither counter advances here -- both move only after a successful
+		// vkQueueSubmit2 at the bottom. Advancing early would burn a timeline value
+		// on any path that returns without submitting, and a later frame would then
+		// wait forever for a value nothing ever signals.
 		const uint32_t frameResIndex = (uint32_t)(this->privFrameIndex % MaxFramesInFlight);
-		const uint64_t signalValue   = this->privNextSignalValue++;
+		const uint64_t signalValue   = this->privNextSignalValue;
 		const uint64_t waitValue     = signalValue - MaxFramesInFlight;
-		this->privFrameIndex++;
 
 		// ---- 1. wait until this frame's resources are free (timeline) ----
 		VkSemaphoreWaitInfo waitInfo = {};
@@ -126,6 +130,13 @@ namespace Neelam::vk
 		VkResult acquire = vkAcquireNextImageKHR(this->privDevice, this->privSwapchain->GetSwapchain(),
 			UINT64_MAX, res.imageAcquiredSemaphore, VK_NULL_HANDLE, &imageIndex);
 
+		if (acquire == VK_ERROR_DEVICE_LOST)
+		{
+			// Not an app bug (TDR / driver update / GPU reset). Engine::Tic turns
+			// this into a normal shutdown.
+			this->privDeviceLost = true;
+			return;
+		}
 		if (acquire == VK_ERROR_OUT_OF_DATE_KHR)
 		{
 			// Cannot render into this swapchain -- rebuild before next frame.
@@ -242,10 +253,8 @@ namespace Neelam::vk
 		// The triangle.
 		shader.SetActive(res.commandBuffer);			// vkCmdBindPipeline
 
-		// Camera matrices -> push constants. AFTER the bind, and every frame:
-		// the command pool was reset at the top of this function, so last
-		// frame's push constants are gone. Identity with no camera, which draws
-		// the raw world-space positions as if they were already in clip space.
+		// Push constants, after the bind and re-issued every frame -- the command
+		// pool was reset at the top, so last frame's are gone.
 		ShaderMatrices matrices;
 
 		// Identity for now -- world becomes per-draw with the scene graph.
@@ -253,10 +262,9 @@ namespace Neelam::vk
 
 		if (pCamera != nullptr)
 		{
-			// Premultiplied here rather than sent as two matrices: Azul is
-			// row-vector, so clip = v * world * (view * proj) associates
-			// correctly, and it frees the 64 bytes that let `world` fit inside
-			// the 128-byte push-constant guarantee.
+			// Premultiplied: Azul is row-vector, so v * world * (view * proj)
+			// associates correctly, and one matrix leaves room for world inside
+			// the 128-byte push-constant limit.
 			matrices.viewProj = pCamera->getViewMatrix() * pCamera->getProjMatrix();
 		}
 		else
@@ -336,7 +344,19 @@ namespace Neelam::vk
 		submit.pCommandBufferInfos      = &cmdSubmit;
 		submit.signalSemaphoreInfoCount = 2;
 		submit.pSignalSemaphoreInfos    = signalSems;
-		VK_Try(vkQueueSubmit2(this->privQueue, 1, &submit, VK_NULL_HANDLE));
+		const VkResult submitResult = vkQueueSubmit2(this->privQueue, 1, &submit, VK_NULL_HANDLE);
+		if (submitResult == VK_ERROR_DEVICE_LOST)
+		{
+			// Nothing was signalled, so the counters below must not advance.
+			this->privDeviceLost = true;
+			return;
+		}
+		VK_Try(submitResult);
+
+		// Only here: the timeline is now guaranteed to reach signalValue. Present may
+		// still fail below, but the submit has happened and will signal.
+		this->privNextSignalValue++;
+		this->privFrameIndex++;
 
 		// ---- 5. present ----
 		VkSemaphore    renderComplete = this->privSwapchain->GetRenderCompleteSemaphore(imageIndex);
@@ -351,7 +371,11 @@ namespace Neelam::vk
 		present.pImageIndices      = &imageIndex;
 
 		VkResult presentResult = vkQueuePresentKHR(this->privQueue, &present);
-		if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR)
+		if (presentResult == VK_ERROR_DEVICE_LOST)
+		{
+			this->privDeviceLost = true;
+		}
+		else if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR)
 		{
 			this->privSwapchainStale = true;
 		}
@@ -402,6 +426,11 @@ namespace Neelam::vk
 	void GraphicsPipeline::ClearSwapchainStale()
 	{
 		this->privSwapchainStale = false;
+	}
+
+	bool GraphicsPipeline::IsDeviceLost() const
+	{
+		return this->privDeviceLost;
 	}
 
 	void GraphicsPipeline::SetClearColor(const Color &color)

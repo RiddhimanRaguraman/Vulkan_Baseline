@@ -99,6 +99,16 @@ namespace Neelam
 			deltaTime = Engine::privMaxTimeStep;
 		}
 
+		// The GPU went away. Every device-dependent object is invalid, so exit
+		// through WM_CLOSE -- the same route ESC takes -- so Shutdown() runs and the
+		// memory tracker still reports. This is a clean exit, not recovery.
+		if (this->graphicsPipeline.IsDeviceLost())
+		{
+			Debug::out("Engine: VK_ERROR_DEVICE_LOST -- GPU reset or driver change, shutting down\n");
+			PostMessage(this->window.GetHandle(), WM_CLOSE, 0, 0);
+			return;
+		}
+
 		// If the last frame found the swapchain out of date (resize/minimize),
 		// rebuild it before drawing again.
 		if (this->graphicsPipeline.IsSwapchainStale())
@@ -107,8 +117,7 @@ namespace Neelam
 			this->graphicsPipeline.ClearSwapchainStale();
 		}
 
-		// Actor-model inbox. Drained BEFORE Update so a shader reload posted
-		// last frame is live for this one's Render.
+		// Drained before Update so a reload posted last frame is live for this one.
 		this->privDrainCommands();
 
 		this->Update(deltaTime);	// -> Game
@@ -116,14 +125,10 @@ namespace Neelam
 	}
 
 	//-----------------------------------------------------------------
-	// Execute commands posted by worker threads. This is the ONE point where
-	// another thread's work touches engine state, which is exactly what makes
-	// "all Vulkan on the engine thread" (§9) true and checkable.
-	//
-	// It is a poll, deliberately. The check is an uncontended mutex lock
-	// (tens of ns against a 16ms frame); interrupting the frame instead would
-	// let a reload free a VkPipeline the in-flight command buffer already
-	// recorded. See §18.
+	// Execute commands posted by worker threads. This is the one point where
+	// another thread's work touches engine state, which is what keeps all Vulkan
+	// calls on this thread. Polled rather than interrupt-driven: an interrupt
+	// could free a pipeline the in-flight command buffer still references.
 	//-----------------------------------------------------------------
 	void Engine::privDrainCommands()
 	{
@@ -160,14 +165,19 @@ namespace Neelam
 			return;
 		}
 
+		// Must precede the rebuild: the old images, views and per-image
+		// semaphores are about to be destroyed, and this is what guarantees no
+		// queue operation still references them.
 		vkDeviceWaitIdle(this->logicalDevice.GetDevice());
 
-		this->swapchain.Destroy();
-		this->swapchain.Create(this->physicalDevice.GetPhysicalDevice(),
-							   this->logicalDevice.GetDevice(),
-							   this->surface.GetSurface(),
-							   vk::VulkanAllocator::Get(),
-							   width, height);
+		// Recreate, NOT Destroy-then-Create -- it hands the retiring swapchain
+		// over as oldSwapchain so the driver can recycle its images, and never
+		// leaves the surface without a swapchain (see Swapchain::Recreate).
+		this->swapchain.Recreate(this->physicalDevice.GetPhysicalDevice(),
+								 this->logicalDevice.GetDevice(),
+								 this->surface.GetSurface(),
+								 vk::VulkanAllocator::Get(),
+								 width, height);
 	}
 
 	//-----------------------------------------------------------------
@@ -204,8 +214,7 @@ namespace Neelam
 
 		this->UnloadContent();	// -> Game (stops the watcher, destroys content)
 
-		// SHUTDOWN ORDER MATTERS -- this is what makes the actor chain safe
-		// without any handle/weak-pointer machinery:
+		// Shutdown order is what keeps the actor chain safe:
 		//
 		//   1. UnloadContent stopped the ShaderWatcher, so nothing new can be
 		//      posted to the file thread. It also dropped the technique

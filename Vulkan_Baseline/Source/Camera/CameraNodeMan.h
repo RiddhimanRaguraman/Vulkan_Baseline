@@ -9,7 +9,7 @@
 #include "CameraNode.h"
 #include "Camera.h"
 
-// PORT: EngineDLLInterface.h / AZUL_ENGINE_LIBRARY_API dropped -- app source, not a DLL export.
+// EngineDLLInterface.h / AZUL_ENGINE_LIBRARY_API dropped -- app source, not a DLL export.
 
 namespace Neelam
 {

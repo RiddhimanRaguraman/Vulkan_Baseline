@@ -12,27 +12,18 @@
 namespace Neelam::vk
 {
 	//-----------------------------------------------------------------
-	// The per-frame matrices, handed to the vertex stage as PUSH CONSTANTS.
+	// The matrices handed to the vertex stage as PUSH CONSTANTS -- a small block
+	// written straight into the command buffer, no descriptor set or allocation.
 	//
-	// Push constants are a small block written straight into the command buffer
-	// -- no descriptor set, no buffer, no allocation. Perfect for a couple of
-	// matrices that change every frame; the wrong tool once the data gets big.
+	// world is per object, viewProj is per frame. view*proj is premultiplied on
+	// the CPU: Azul is row-vector, so clip = v * world * (view * proj) associates
+	// correctly, and one matrix leaves room for world inside the 128-byte limit
+	// the spec guarantees. Today world is identity.
 	//
-	// SIZE LIMIT: the Vulkan spec only guarantees maxPushConstantsSize >= 128
-	// bytes. Two Mat4s is exactly 128, so this is full. Adding a per-object
-	// world matrix means either pre-multiplying view*proj on the CPU (freeing
-	// 64 bytes) or moving to a uniform buffer + descriptor set.
-	//
-	// LAYOUT: Azul::Mat4 is 4 Vec4 rows, ROW-major, and Azul is a row-vector
-	// library (v * M). The HLSL side therefore declares these `row_major` and
-	// uses mul(vector, matrix) -- see ColorByVertex.vs.hlsl. Get that wrong and
-	// every matrix silently arrives transposed.
+	// The HLSL side must declare these row_major and use mul(vector, matrix) --
+	// Azul::Mat4 is 4 row Vec4s, while HLSL packs column-major by default. Get
+	// that wrong and every matrix silently arrives transposed.
 	//-----------------------------------------------------------------
-	// world is PER OBJECT, viewProj is PER FRAME. view*proj is premultiplied on
-	// the CPU rather than sent as two matrices: Azul is row-vector, so
-	// clip = v * world * (view * proj) associates correctly, and it buys back
-	// the 64 bytes that make a world matrix fit inside the 128-byte guarantee.
-	// Today world is identity; it becomes per-draw with the scene graph.
 	struct ShaderMatrices
 	{
 		Azul::Mat4 world;
@@ -53,12 +44,13 @@ namespace Neelam::vk
 // The key Vulkan difference from Azul/DX11: shaders are NOT bound individually.
 // They are compiled into an immutable VkPipeline, so:
 //   * SetActive() is one vkCmdBindPipeline (not VSSetShader + PSSetShader).
-//   * Reload() must REBUILD the pipeline, not just swap a module.
+//   * a reload must REBUILD the pipeline, not just swap a module --
+//     ReloadFromBlobs() does that.
 //
 // Derived classes supply only which .hlsl files to use (GetVertexPath /
-// GetPixelPath). The base handles compile + pipeline build + hot-reload. The
-// pipeline here is the minimal triangle setup: no vertex input (positions come
-// from SV_VertexID), one color attachment, dynamic viewport/scissor, depth off.
+// GetPixelPath) and their vertex layout. The base handles compile, pipeline
+// build and hot-reload. One color attachment, depth on, dynamic viewport and
+// scissor so a camera can set them per frame.
 //---------------------------------------------------------------------------
 
 namespace Neelam::vk
@@ -69,10 +61,9 @@ namespace Neelam::vk
 		//-----------------------------------------------------------------
 		// Identity for manager lookup. A cross-thread command carries this
 		// NAME, never a ShaderObject* -- the engine thread resolves it through
-		// ShaderObjectMan::Find() when the command executes, so a technique
-		// destroyed while a compile was in flight resolves to nullptr instead
-		// of a dangling pointer. (Handles are a self-pin, not a weak pointer;
-		// see the correction in the build notes.)
+		// ShaderObjectNodeMan::Find() when the command executes, so a technique
+		// destroyed while a compile was in flight resolves to nullptr instead of a
+		// dangling pointer.
 		//-----------------------------------------------------------------
 		enum class Name
 		{
@@ -97,10 +88,6 @@ namespace Neelam::vk
 		// pipeline, so they must match the frame loop's attachments).
 		void Create(VkDevice device, VkFormat colorFormat, VkFormat depthFormat);
 
-		// Recompile both shaders from disk and rebuild the pipeline. Waits for
-		// the device to be idle first. Called on the engine thread when the
-		// ShaderWatcher reports a change (see the actor-model note in Game).
-		void Reload();
 
 		void Destroy();
 
@@ -119,8 +106,8 @@ namespace Neelam::vk
 		//-----------------------------------------------------------------
 
 		// Swap in modules built from SPIR-V that the FileThread already
-		// compiled, then rebuild the pipeline. Same end state as Reload(), but
-		// the expensive part (disk + DXC) happened off-thread.
+		// compiled, then rebuild the pipeline. The expensive part (disk + DXC)
+		// already happened on the file thread.
 		// Either blob may be null -> that stage keeps its last-good module.
 		void ReloadFromBlobs(IDxcBlob *pVertexSpirv, IDxcBlob *pPixelSpirv);
 
@@ -136,7 +123,7 @@ namespace Neelam::vk
 		VkPipeline       GetPipeline() const;
 		VkPipelineLayout GetLayout() const;
 
-		// Source .hlsl files, for the watcher to poll. Derived supplies these.
+		// Source .hlsl files. GetVertexPath is also where ShaderWatcher gets the`r`n`t`t// folder to watch, so it is the only place that path is named.
 		virtual const char *GetVertexPath() const = 0;
 		virtual const char *GetPixelPath() const  = 0;
 

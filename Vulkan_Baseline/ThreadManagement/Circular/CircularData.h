@@ -21,16 +21,15 @@ namespace Neelam
 	//
 	// Properties that matter here:
 	//   * FIXED storage -- a plain array + two wrapping indices. No std::queue,
-	//     no std::vector (§2), and no allocation while running.
+	//     no std::vector, and no allocation while running.
 	//   * Never blocks. PushBack/PopFront take the lock, do O(1) work, return.
 	//     A full inbox returns false rather than waiting, so a producer can
 	//     never stall the engine thread.
 	//   * Never throws.
 	//
-	// NOTE there is deliberately no public IsEmpty()/IsFull(). They would lock,
-	// read, and unlock -- so the answer is already stale by the time the caller
-	// acts on it. The safe pattern is to just call PushBack/PopFront and check
-	// the bool; that decision is made while the lock is still held.
+	// No public IsEmpty()/IsFull(): they would lock, read and unlock, so the answer
+	// is stale by the time the caller acts on it. Call PushBack/PopFront and check
+	// the bool -- that decision is made while the lock is held.
 	//-----------------------------------------------------------------------
 	class CircularData
 	{

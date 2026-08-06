@@ -8,16 +8,11 @@
 //---------------------------------------------------------------------------
 // class Handle
 //
-// >>> NOT WIRED TO ANYTHING YET. This is a deliberate keep, not an oversight.
-//
-// Ported for the actor model (§18 phase 3), then not needed: the cross-thread
-// lifetime problem there -- "is the ShaderObject this command names still
-// alive?" -- is solved by ShaderObjectNodeMan::Find(name), because a Handle is
-// NOT a weak pointer (see below). It is kept because it is the correct tool for
-// a different problem this engine will hit: an object whose own methods can be
-// called from more than one thread. Nothing has that shape today.
-//
-// If that never materializes, delete the folder -- it costs nothing to remove.
+// NOT WIRED TO ANYTHING YET -- a deliberate keep. The cross-thread lifetime
+// problem in the actor model is solved by ShaderObjectNodeMan::Find(name),
+// because a Handle is not a weak pointer (see below). Kept because it is the
+// right tool for an object whose own methods can be called from more than one
+// thread; nothing has that shape today.
 //
 // A cross-thread answer to "is the thing this message points at still alive?"
 //
@@ -39,9 +34,8 @@
 // While a Lock is held the table slot's mutex is held, so the owner cannot be
 // destroyed mid-use. That is the whole guarantee.
 //
-// Handles are NON-COPYABLE on purpose: two copies would both invalidate the
-// same slot on destruction. (The reference engine has a LockTwoInput for
-// copyable handle-holders; nothing here is copyable, so it is not ported.)
+// Non-copyable on purpose: two copies would both invalidate the same slot on
+// destruction.
 //---------------------------------------------------------------------------
 
 namespace Neelam

@@ -37,24 +37,6 @@ namespace Neelam::vk
 		}
 	}
 
-	bool ShaderModule::Reload()
-	{
-		VkShaderModule fresh = this->privCompile();
-		if (fresh == VK_NULL_HANDLE)
-		{
-			// Keep the current module -- a bad edit does not break the running
-			// app; the DXC error was already logged.
-			return false;
-		}
-
-		if (this->privModule != VK_NULL_HANDLE)
-		{
-			vkDestroyShaderModule(this->privDevice, this->privModule, nullptr);
-		}
-		this->privModule = fresh;
-		return true;
-	}
-
 	bool ShaderModule::CreateFromBlob(IDxcBlob *pSpirv)
 	{
 		assert(pSpirv);
